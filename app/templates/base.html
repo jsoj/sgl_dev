@@ -1,0 +1,104 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SGL{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <style>
+        .sidebar {
+            min-width: 250px;
+            max-width: 250px;
+            min-height: 100vh;
+            transition: margin-left 0.3s;
+        }
+        .sidebar.collapsed {
+            margin-left: -250px;
+        }
+        #content {
+            width: 100%;
+            min-height: 100vh;
+            transition: margin-left 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div class="d-flex">
+        <!-- Sidebar -->
+        <nav id="sidebar" class="sidebar bg-dark text-white">
+            <div class="p-4">
+                <h3>SGL</h3>
+                <hr>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a href="/admin" class="nav-link text-white">
+                            <i class="bi bi-file-earmark-plus"></i> Administração
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href=# class="nav-link text-white">
+                            <i class="bi bi-file-earmark-plus"></i> WIKI
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href=# class="nav-link text-white">
+                            <i class="bi bi-file-earmark-plus"></i> Fórum
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{% url 'criar_projeto' %}" class="nav-link text-white">
+                            <i class="bi bi-file-earmark-plus"></i> Criar Projeto
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{% url 'criar_placa_384' %}" class="nav-link text-white">
+                            <i class="bi bi-grid-3x3"></i> Criar Placa 384
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Page Content -->
+        <div id="content">
+            <nav class="navbar navbar-expand-lg navbar-light bg-light">
+                <div class="container-fluid">
+                    <button type="button" id="sidebarCollapse" class="btn btn-dark">
+                        <i class="bi bi-list"></i>
+                    </button>
+                    <div class="ms-auto">
+                        <span class="me-3">{{ request.user.username }}</span>
+                        <a href="{% url 'logout' %}" class="btn btn-outline-danger">Sair</a>
+                    </div>
+                </div>
+            </nav>
+
+            <div class="container-fluid p-4">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+                
+                {% block content %}
+                {% endblock %}
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            $('#sidebarCollapse').on('click', function () {
+                $('#sidebar').toggleClass('collapsed');
+            });
+        });
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

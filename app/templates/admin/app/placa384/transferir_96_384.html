@@ -1,0 +1,167 @@
+<!-- transferir_96_384.html -->
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block extrahead %}
+{{ block.super }}
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<style>
+    .placa-selection {
+        margin-bottom: 20px;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+    .help-text {
+        color: #666;
+        font-size: 0.8em;
+        margin-top: 4px;
+    }
+    .placa-diagram {
+        margin: 20px 0;
+        padding: 15px;
+        background: #f9f9f9;
+        border-radius: 4px;
+    }
+</style>
+
+<script>
+$(document).ready(function() {
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    $.ajaxSetup({
+        headers: {'X-CSRFToken': csrftoken}
+    });
+
+    $('#id_empresa').change(function() {
+        const empresaId = $(this).val();
+        const projetoSelect = $('#id_projeto');
+        
+        projetoSelect.empty().prop('disabled', true);
+        projetoSelect.append('<option value="">Selecione um projeto</option>');
+        
+        if (!empresaId) return;
+
+        $.ajax({
+            url: `/admin/app/placa384/get-projetos/${empresaId}/`,
+            method: 'GET',
+            success: function(data) {
+                if (data.results) {
+                    data.results.forEach(function(projeto) {
+                        projetoSelect.append(
+                            `<option value="${projeto.id}">${projeto.text}</option>`
+                        );
+                    });
+                    projetoSelect.prop('disabled', false);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Erro:', error);
+                alert('Erro ao carregar projetos');
+            }
+        });
+    });
+
+    $('#id_projeto').change(function() {
+        const projetoId = $(this).val();
+        const placaSelects = $('[name^="placa_"]');
+        
+        placaSelects.empty().prop('disabled', true);
+        placaSelects.append('<option value="">Selecione uma placa</option>');
+        
+        if (!projetoId) return;
+
+        $.ajax({
+            url: `/admin/app/placa384/get-placas-96/${projetoId}/`,
+            method: 'GET',
+            success: function(placas) {
+                placas.forEach(function(placa) {
+                    placaSelects.append(
+                        `<option value="${placa.id}">${placa.codigo_placa}</option>`
+                    );
+                });
+                placaSelects.prop('disabled', false);
+            },
+            error: function(xhr, status, error) {
+                console.error('Erro:', error);
+                alert('Erro ao carregar placas');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <form method="post" id="formPlaca384">
+        {% csrf_token %}
+        
+        <fieldset class="module aligned">
+            <div class="form-row">
+                <label for="id_empresa">Empresa:</label>
+                {{ form.empresa }}
+                {{ form.empresa.errors }}
+            </div>
+
+            <div class="form-row">
+                <label for="id_projeto">Projeto:</label>
+                {{ form.projeto }}
+                {{ form.projeto.errors }}
+            </div>
+
+            <div class="placa-diagram">
+                <h3>Diagrama de Transferência</h3>
+                <p>A placa 384 é preenchida em 4 posições:</p>
+                <ul>
+                    <li>Posição 1: Linhas pares, Colunas pares</li>
+                    <li>Posição 2: Linhas pares, Colunas ímpares</li>
+                    <li>Posição 3: Linhas ímpares, Colunas pares</li>
+                    <li>Posição 4: Linhas ímpares, Colunas ímpares</li>
+                </ul>
+            </div>
+
+            <div class="placa-selection">
+                <h3>Posição 1</h3>
+                <select name="placa_1" class="placa-select" required disabled>
+                    <option value="">Primeiro selecione um projeto</option>
+                </select>
+                <p class="help-text">Linhas pares, Colunas pares (A1, A3, C1, C3, etc)</p>
+            </div>
+
+            <div class="placa-selection">
+                <h3>Posição 2</h3>
+                <select name="placa_2" class="placa-select"  disabled>
+                    <option value="">Primeiro selecione um projeto</option>
+                </select>
+                <p class="help-text">Linhas pares, Colunas ímpares (A2, A4, C2, C4, etc)</p>
+            </div>
+
+            <div class="placa-selection">
+                <h3>Posição 3</h3>
+                <select name="placa_3" class="placa-select"  disabled>
+                    <option value="">Primeiro selecione um projeto</option>
+                </select>
+                <p class="help-text">Linhas ímpares, Colunas pares (B1, B3, D1, D3, etc)</p>
+            </div>
+
+            <div class="placa-selection">
+                <h3>Posição 4</h3>
+                <select name="placa_4" class="placa-select"  disabled>
+                    <option value="">Primeiro selecione um projeto</option>
+                </select>
+                <p class="help-text">Linhas ímpares, Colunas ímpares (B2, B4, D2, D4, etc)</p>
+            </div>
+
+            <div class="form-row">
+                <label for="codigo_placa_384">Código da Nova Placa 384:</label>
+                <input type="text" name="codigo_placa_384" required>
+            </div>
+        </fieldset>
+
+        <div class="submit-row">
+            <input type="submit" value="Criar Placa 384" class="default">
+        </div>
+    </form>
+</div>
+{% endblock %}

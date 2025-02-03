@@ -1,0 +1,46 @@
+# Arquivos bytecode
+*.pyc
+__pycache__/
+app/__pycache__/
+*.pyo
+app/__pycache__/managers.cpython-312.pyc
+app/__pycache__/mid.cpython-312.pyc
+SGL/__pycache__/
+
+# Arquivos temporários
+*~.*~
+
+# Arquivos de configuração específicos do ambiente
+local_settings.py.env
+
+# Arquivos de banco de dados SQLite
+db.sqlite3
+app/migrations/*
+
+# Diretório de arquivos de mídia (se aplicável)
+media/
+
+# Diretório de arquivos estáticos (se aplicável)
+staticfiles/
+reportlab/
+
+# Logs
+debug.log
+
+# Arquivos gerados pelo IDE.idea/.vscode/
+
+# Arquivos de dependências
+venv/
+node_modules/
+
+# Arquivos de build
+dist/
+build/
+
+
+# Arquivos de setup 
+Especificação_funcional.docx
+96_to_384_to_1536_platemapper.xlsx
+manage.py
+debug.log
+backup.json

@@ -1,0 +1,12 @@
+{# templates/admin/placa384/change_form.html #}
+{% extends 'admin/change_form.html' %}
+{% load i18n admin_urls %}
+
+{% block submit_buttons_bottom %}
+    {{ block.super }}
+    {% if show_transfer_button %}
+        <div class="submit-row">
+            <a href="{% url 'admin:placa384-transfer' original.pk %}" class="button">Transferir Placas 96</a>
+        </div>
+    {% endif %}
+{% endblock %}

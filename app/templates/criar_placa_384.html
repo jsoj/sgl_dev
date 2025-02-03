@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+
+{% block title %}Criar Placa 384{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4>Criar Nova Placa 384</h4>
+    </div>
+    <div class="card-body">
+        <form method="post" id="formPlaca384">
+            {% csrf_token %}
+            
+            <div class="mb-3">
+                <label for="empresa" class="form-label">Empresa</label>
+                <select name="empresa" id="empresa" class="form-select" required>
+                    <option value="">Selecione uma empresa</option>
+                    {% for empresa in empresas %}
+                        <option value="{{ empresa.id }}">{{ empresa.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label for="projeto" class="form-label">Projeto</label>
+                <select name="projeto" id="projeto" class="form-select" required disabled>
+                    <option value="">Primeiro selecione uma empresa</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label for="placas" class="form-label">Placas 96 Disponíveis</label>
+                <select name="placas[]" id="placas" class="form-select" multiple size="8" required disabled>
+                    <option value="">Primeiro selecione um projeto</option>
+                </select>
+                <div class="form-text">Selecione exatamente 4 placas</div>
+                <div id="placasSelecionadas" class="mt-2"></div>
+            </div>
+
+            <div class="mb-3">
+                <label for="codigo_placa_384" class="form-label">Código da Nova Placa 384</label>
+                <input type="text" name="codigo_placa_384" id="codigo_placa_384" class="form-control" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="btnSubmit" disabled>Criar Placa 384</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    $.ajaxSetup({
+        beforeSend: function(xhr, settings) {
+            if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+                xhr.setRequestHeader("X-CSRFToken", csrftoken);
+            }
+        }
+    });
+
+    // Atualiza projetos quando empresa é selecionada
+    $('#empresa').change(function() {
+        const empresaId = $(this).val();
+        console.log('Empresa selecionada:', empresaId);
+        if (empresaId) {
+            $.ajax({
+                url: `/api/projetos/${empresaId}/`,
+                method: 'GET',
+                success: function(data) {
+                    console.log('Dados recebidos:', data);
+                    const projetoSelect = $('#projeto');
+                    projetoSelect.empty().append('<option value="">Selecione um projeto</option>');
+                    
+                    if (data.results && Array.isArray(data.results)) {
+                        data.results.forEach(function(projeto) {
+                            projetoSelect.append(`<option value="${projeto.id}">${projeto.text}</option>`);
+                        });
+                        projetoSelect.prop('disabled', false);
+                    } else {
+                        console.error('Formato de dados inválido:', data);
+                        projetoSelect.append('<option value="">Erro ao carregar projetos</option>');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Erro ao buscar projetos:', error);
+                    console.log('Status:', status);
+                    console.log('Resposta:', xhr.responseText);
+                    alert('Erro ao carregar projetos. Verifique o console para mais detalhes.');
+                }
+            });
+        } else {
+            $('#projeto').prop('disabled', true).empty()
+                .append('<option value="">Primeiro selecione uma empresa</option>');
+            $('#placas').prop('disabled', true).empty()
+                .append('<option value="">Primeiro selecione um projeto</option>');
+        }
+    });
+
+    // Atualiza placas quando projeto é selecionado
+    $('#projeto').change(function() {
+        const projetoId = $(this).val();
+        if (projetoId) {
+            $.ajax({
+                url: `/api/placas-96/${projetoId}/`,
+                method: 'GET',
+                success: function(data) {
+                    console.log('Placas recebidas:', data);
+                    const placasSelect = $('#placas');
+                    placasSelect.empty();
+                    
+                    if (Array.isArray(data)) {
+                        data.forEach(function(placa) {
+                            placasSelect.append(`<option value="${placa.id}">${placa.codigo_placa}</option>`);
+                        });
+                        placasSelect.prop('disabled', false);
+                    } else {
+                        console.error('Formato de dados inválido:', data);
+                        placasSelect.append('<option value="">Erro ao carregar placas</option>');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Erro ao buscar placas:', error);
+                    console.log('Status:', status);
+                    console.log('Resposta:', xhr.responseText);
+                    alert('Erro ao carregar placas. Verifique o console para mais detalhes.');
+                }
+            });
+        } else {
+            $('#placas').prop('disabled', true).empty()
+                .append('<option value="">Primeiro selecione um projeto</option>');
+        }
+    });
+
+    // Controla seleção de placas
+    $('#placas').change(function() {
+        const placasSelecionadas = $(this).val() || [];
+        $('#placasSelecionadas').html(`Placas selecionadas: ${placasSelecionadas.length}/4`);
+        $('#btnSubmit').prop('disabled', placasSelecionadas.length !== 4);
+    });
+
+    // Validação do formulário
+    $('#formPlaca384').submit(function(e) {
+        e.preventDefault();
+        const placasSelecionadas = $('#placas').val() || [];
+        if (placasSelecionadas.length !== 4) {
+            alert('Selecione exatamente 4 placas.');
+            return false;
+        }
+        
+        // Se a validação passar, enviar o formulário
+        this.submit();
+    });
+});
+</script>
+{% endblock %}

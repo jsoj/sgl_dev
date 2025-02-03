@@ -1,0 +1,27 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_modify %}
+
+{% block content %}
+<div id="content-main">
+    <form method="post">
+        {% csrf_token %}
+        <fieldset class="module aligned">
+            <div class="form-row">
+                <div class="fieldBox">
+                    {{ form.placa_destino.errors }}
+                    <label for="{{ form.placa_destino.id_for_label }}">{{ form.placa_destino.label }}:</label>
+                    {{ form.placa_destino }}
+                    {% if form.placa_destino.help_text %}
+                        <div class="help">{{ form.placa_destino.help_text|safe }}</div>
+                    {% endif %}
+                </div>
+            </div>
+        </fieldset>
+        
+        <div class="submit-row">
+            <input type="submit" value="Realizar Transferência" class="default" name="_save">
+            <a href="{% url 'admin:app_placa384_change' original.pk %}" class="closelink">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
