@@ -457,12 +457,12 @@ class Projeto(EmpresaMixin, models.Model):
 
     def calculate_well_position(self, index):
         """
-        Calcula a posição do poço (A1-H12) baseado no índice sequencial.
+        Calcula a posição do poço (A01-H12) baseado no índice sequencial.
         A placa é preenchida por linha, da esquerda para direita.
         """
         row = chr(65 + (index // 12))  # A-H (divisão inteira por 12 para linha)
         col = (index % 12) + 1         # 1-12 (resto da divisão por 12 para coluna)
-        return f"{row}{col}"
+        return f"{row}{str(col).zfill(2)}"
 
     def create_project_resources(self):
         """
@@ -506,8 +506,8 @@ class Projeto(EmpresaMixin, models.Model):
                 sample_index = 0
                 
                 for plate in plates:
-                    # Cria os poços de controle NTC (A1, B1, C1, D1)
-                    control_positions = ['A1', 'B1', 'C1', 'D1']
+                    # Cria os poços de controle NTC (A01, B1, C1, D1)
+                    control_positions = ['A01', 'B01', 'C01', 'D01']
                     for pos in control_positions:
                         well = Poco96.objects.create(
                             empresa=self.empresa,
@@ -556,7 +556,7 @@ class Projeto(EmpresaMixin, models.Model):
             'total_samples': self.amostra_set.count(),
             'total_wells': sum(placa.poco96_set.count() for placa in self.placa96_set.all()),
             'control_wells': sum(
-                placa.poco96_set.filter(posicao__in=['A1', 'B1', 'C1', 'D1']).count() 
+                placa.poco96_set.filter(posicao__in=['A01', 'B01', 'C01', 'D01']).count() 
                 for placa in self.placa96_set.all()
             )
         }
@@ -634,38 +634,10 @@ class Placa96(EmpresaMixin, models.Model):
         return f"{self.codigo_placa}"
 
     def get_amostras_count(self):
-        return self.poco96_set.count()
-
-
-class Placa384(EmpresaMixin, models.Model):
-    def transfer_384_to_384(self, placa_destino):
-        try:
-            with transaction.atomic():
-                # Criar mapeamento que validará todas as regras
-                mapa = PlacaMap384to384.objects.create(
-                    empresa=self.empresa,
-                    placa_origem=self,
-                    placa_destino=placa_destino
-                )
-                
-                # Copiar poços e amostras
-                pocos_origem = Poco384.objects.filter(placa=self).select_related('amostra')
-                
-                for poco in pocos_origem:
-                    Poco384.objects.create(
-                        empresa=self.empresa,
-                        placa=placa_destino,
-                        amostra=poco.amostra,
-                        posicao=poco.posicao
-                    )
-                
-                self.is_active = False
-                self.save()
-                
-                return True
-                
-        except Exception as e:
-            raise ValidationError(str(e))
+        """Retorna a contagem de amostras, excluindo os NTCs"""
+        return self.poco96_set.exclude(
+            amostra__codigo_amostra__icontains='NTC'
+        ).count()
 
 class Placa384(EmpresaMixin, models.Model):
     projeto = models.ForeignKey('Projeto', on_delete=models.CASCADE)
@@ -691,9 +663,12 @@ class Placa384(EmpresaMixin, models.Model):
         ).order_by('placamap384__quadrante')
 
     def get_amostras_count(self):
-        return self.poco384_set.count()
+        """Retorna a contagem de amostras, excluindo os NTCs"""
+        return self.poco384_set.exclude(
+            amostra__codigo_amostra__icontains='NTC'
+        ).count()
 
-    CONTROL_WELL_POSITIONS = ['A1', 'B1', 'C1', 'D1']
+    CONTROL_WELL_POSITIONS = ['A01', 'B01', 'C01', 'D01']
     WELLS_PER_PLATE = 96
 
     def calculate_384_well_position(self, row_96, col_96, plate_index):
@@ -702,18 +677,16 @@ class Placa384(EmpresaMixin, models.Model):
             new_row = row_96 * 2
             new_col = col_96 * 2
         elif plate_index == 1:  # Segunda placa
-            new_row = row_96 * 2
-            new_col = col_96 * 2 + 1
-        elif plate_index == 2:  # Terceira placa
             new_row = row_96 * 2 + 1
-            new_col = col_96 * 2
+            new_col = col_96 * 2 
+        elif plate_index == 2:  # Terceira placa
+            new_row = row_96 * 2 
+            new_col = col_96 * 2 + 1
         else:  # Quarta placa
             new_row = row_96 * 2 + 1
             new_col = col_96 * 2 + 1
         
         return f"{chr(ord('A') + new_row)}{str(new_col + 1).zfill(2)}"
-
-# models.py - método na classe Placa384
 
     def transfer_96_to_384(self, placas_96_list):
         try:
@@ -754,6 +727,34 @@ class Placa384(EmpresaMixin, models.Model):
         except Exception as e:
             raise ValidationError(f"Erro na transferência: {str(e)}")
 
+    def transfer_384_to_384(self, placa_destino):
+        """Transfere os poços e amostras desta placa para uma nova placa 384"""
+        try:
+            with transaction.atomic():
+                # Criar mapeamento
+                PlacaMap384to384.objects.create(
+                    empresa=self.empresa,
+                    placa_origem=self,
+                    placa_destino=placa_destino
+                )
+                
+                # Copiar poços e amostras
+                for poco_origem in self.poco384_set.all():
+                    Poco384.objects.create(
+                        empresa=self.empresa,
+                        placa=placa_destino,
+                        amostra=poco_origem.amostra,
+                        posicao=poco_origem.posicao
+                    )
+                
+                # Inativar placa origem
+                self.is_active = False
+                self.save()
+                
+        except Exception as e:
+            raise ValidationError(f"Erro na transferência: {str(e)}")
+
+
 class Placa1536(EmpresaMixin, models.Model):
     projeto = models.ForeignKey('Projeto', on_delete=models.CASCADE)
     codigo_placa = models.CharField(
@@ -770,7 +771,7 @@ class Placa1536(EmpresaMixin, models.Model):
         verbose_name_plural = 'Placas 1536'
 
     def __str__(self):
-        return f"{self.projeto.codigo_projeto} - P1536 {self.codigo_placa}"
+        return f"{self.empresa.codigo}-{self.projeto.codigo_projeto}-1536-{self.codigo_placa}"
 
     def get_placas_384_origem(self):
         return Placa384.objects.filter(
@@ -778,7 +779,82 @@ class Placa1536(EmpresaMixin, models.Model):
         ).order_by('placamap1536__quadrante')
 
     def get_amostras_count(self):
-        return self.poco1536_set.count()
+        """Retorna a contagem de amostras, excluindo os NTCs"""
+        return self.poco1536_set.exclude(
+            amostra__codigo_amostra__icontains='NTC'
+        ).count()
+
+    # models.py - na classe Placa1536
+
+    def calculate_1536_well_position(self, row_384, col_384, plate_index):
+        """Calcula a nova posição do poço na placa 1536"""
+        if plate_index == 0:  # Primeira placa
+            new_row = row_384 * 2
+            new_col = col_384 * 2
+        elif plate_index == 1:  # Segunda placa
+            new_row = row_384 * 2 + 1
+            new_col = col_384 * 2 
+        elif plate_index == 2:  # Terceira placa
+            new_row = row_384 * 2 
+            new_col = col_384 * 2 + 1
+        else:  # Quarta placa
+            new_row = row_384 * 2 + 1
+            new_col = col_384 * 2 + 1
+        
+        # Converter número da linha para formato de letra(s)
+        row_letter = ''
+        while new_row >= 0:
+            row_letter = chr(65 + (new_row % 26)) + row_letter
+            new_row = (new_row // 26) - 1
+        
+        return f"{row_letter}{str(new_col + 1).zfill(2)}"
+
+    def transfer_384_to_1536(self, placas_384_list):
+        """Transfere amostras de placas 384 para uma placa 1536"""
+        try:
+            with transaction.atomic():
+                if not placas_384_list:
+                    raise ValidationError("Nenhuma placa 384 selecionada.")
+                
+                # Aceita de 1 a 4 placas
+                for index, placa_384 in enumerate(placas_384_list[:4], start=1):
+                    quadrante = index
+                    
+                    # Criar mapeamento
+                    PlacaMap1536.objects.create(
+                        empresa=self.empresa,
+                        placa_origem=placa_384,
+                        placa_destino=self,
+                        quadrante=quadrante
+                    )
+                    
+                    # Transferir poços
+                    for poco_384 in placa_384.poco384_set.all():
+                        # Extrair linha e coluna da posição original
+                        row_384 = ord(poco_384.posicao[0]) - ord('A')
+                        col_384 = int(poco_384.posicao[1:]) - 1
+                        
+                        # Calcular nova posição
+                        nova_pos = self.calculate_1536_well_position(
+                            row_384,
+                            col_384,
+                            quadrante - 1
+                        )
+                        
+                        # Criar novo poço
+                        Poco1536.objects.create(
+                            empresa=self.empresa,
+                            placa=self,
+                            amostra=poco_384.amostra,
+                            posicao=nova_pos
+                        )
+                    
+                    # Inativar placa 384
+                    placa_384.is_active = False
+                    placa_384.save()
+                    
+        except Exception as e:
+            raise ValidationError(f"Erro na transferência: {str(e)}")
 
 # POÇOS
 
@@ -791,7 +867,7 @@ class Poco96(EmpresaMixin, models.Model):
         blank=True)  # E isso)
     posicao = models.CharField(
         max_length=3,
-        help_text='Posição do poço (ex: A1, H12)'
+        help_text='Posição do poço (ex: A01, H12)'
     )
 
     class Meta:
@@ -805,12 +881,12 @@ class Poco96(EmpresaMixin, models.Model):
     def clean(self):
         if not self.posicao:
             return
-        # Validar formato da posição (A1-H12)
+        # Validar formato da posição (A01-H12)
         linha = self.posicao[0].upper()
-        coluna = self.posicao[1:]
+        coluna = self.posicao[1:].zfill(2)
         if not (linha in 'ABCDEFGH' and coluna.isdigit() and 1 <= int(coluna) <= 12):
             raise ValidationError({
-                'posicao': _('Posição inválida. Use formato A1-H12.')
+                'posicao': _('Posição inválida. Use formato A01-H12.')
             })
 
 class Poco384(EmpresaMixin, models.Model):
@@ -818,7 +894,7 @@ class Poco384(EmpresaMixin, models.Model):
     amostra = models.ForeignKey(Amostra, on_delete=models.CASCADE)
     posicao = models.CharField(
         max_length=3,
-        help_text='Posição do poço (ex: A1, P24)'
+        help_text='Posição do poço (ex: A01, P24)'
     )
 
     class Meta:
@@ -832,12 +908,12 @@ class Poco384(EmpresaMixin, models.Model):
     def clean(self):
         if not self.posicao:
             return
-        # Validar formato da posição (A1-P24)
+        # Validar formato da posição (A01-P24)
         linha = self.posicao[0].upper()
         coluna = self.posicao[1:]
         if not (linha in 'ABCDEFGHIJKLMNOP' and coluna.isdigit() and 1 <= int(coluna) <= 24):
             raise ValidationError({
-                'posicao': _('Posição inválida. Use formato A1-P24.')
+                'posicao': _('Posição inválida. Use formato A01-P24.')
             })
 
 class Poco1536(EmpresaMixin, models.Model):
@@ -845,7 +921,7 @@ class Poco1536(EmpresaMixin, models.Model):
     amostra = models.ForeignKey(Amostra, on_delete=models.CASCADE)
     posicao = models.CharField(
         max_length=4,
-        help_text='Posição do poço (ex: A1, AF48)'
+        help_text='Posição do poço (ex: A01, AF48)'
     )
 
     class Meta:
@@ -859,13 +935,13 @@ class Poco1536(EmpresaMixin, models.Model):
     def clean(self):
         if not self.posicao:
             return
-        # Validar formato da posição (A1-AF48)
+        # Validar formato da posição (A01-AF48)
         linha = self.posicao[0:2].upper()
         coluna = self.posicao[2:]
         linhas_validas = [chr(i) + (chr(j) if j else '') for i in range(65, 91) for j in range(65, 71)]
         if not (linha in linhas_validas and coluna.isdigit() and 1 <= int(coluna) <= 48):
             raise ValidationError({
-                'posicao': _('Posição inválida. Use formato A1-AF48.')
+                'posicao': _('Posição inválida. Use formato A01-AF48.')
             })
 
 # MAPEAMENTO
