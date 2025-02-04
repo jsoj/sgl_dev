@@ -754,7 +754,6 @@ class Placa384(EmpresaMixin, models.Model):
         except Exception as e:
             raise ValidationError(f"Erro na transferência: {str(e)}")
 
-
 class Placa1536(EmpresaMixin, models.Model):
     projeto = models.ForeignKey('Projeto', on_delete=models.CASCADE)
     codigo_placa = models.CharField(

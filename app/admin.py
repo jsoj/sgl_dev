@@ -17,10 +17,12 @@ from django.core.exceptions import ValidationError  # Adicione esta linha
 from django.http import JsonResponse
 from django.contrib.admin import AdminSite
 from django.contrib.auth.models import Group
-import logging
 from django.contrib.auth.admin import GroupAdmin
-# from admin_interface.models import Theme
+from import_export import resources
+from import_export.admin import ImportExportModelAdmin
+from import_export import resources, fields
 
+import logging
 logger = logging.getLogger(__name__)
 
 
@@ -183,6 +185,38 @@ class PlacaDestinoFilter(admin.SimpleListFilter):
         if self.value():
             return queryset.filter(placa_destino_id=self.value())
         return queryset
+
+# Resources - Export e Import 
+
+class Poco1536Resource(resources.ModelResource):
+    empresa_codigo = fields.Field(
+        column_name='Código da Empresa',
+        attribute='amostra__projeto__empresa__codigo'
+    )
+    empresa_nome = fields.Field(
+        column_name='Nome da Empresa',
+        attribute='amostra__projeto__empresa__nome'
+    )
+    projeto_codigo = fields.Field(
+        column_name='Codigo do Projeto',
+        attribute='amostra__projeto__codigo_projeto'
+    )
+    projeto_nome = fields.Field(
+        column_name='Nome do Projeto',
+        attribute='amostra__projeto__nome_projeto_cliente'
+    )
+    placa_codigo = fields.Field(
+        column_name='Código da Placa de 1536',
+        attribute='placa__codigo_placa'
+    )
+    amostra_codigo = fields.Field(
+        column_name='Código da Amostra',
+        attribute='amostra__codigo_amostra'
+    )
+
+    class Meta:
+        model = Poco1536
+        fields = ('id', 'empresa_codigo','empresa_nome','projeto_codigo', 'projeto_nome', 'placa_codigo', 'amostra_codigo','posicao')
 
 # CUSTOMIZACAO DO ADMIN SITE
 
@@ -806,6 +840,7 @@ class Placa1536Admin(EmpresaAdminMixin, admin.ModelAdmin):
         extra_context = extra_context or {}
         extra_context['show_transfer_button'] = True
         return super().changelist_view(request, extra_context)
+    
 
 admin_site.register(Placa1536, Placa1536Admin)
 
@@ -930,7 +965,8 @@ admin_site.register(Poco384, Poco384Admin)
 
 
 # @admin_site.register(Poco1536)
-class Poco1536Admin(EmpresaAdminMixin, admin.ModelAdmin):
+class Poco1536Admin(EmpresaAdminMixin, ImportExportModelAdmin):
+    resource_class = Poco1536Resource
     list_display = ('empresa', 'empresa__nome','placa', 'posicao', 'amostra')
     list_display_links=['posicao']
     list_filter = (EmpresaFilter, ProjetoFilterPoco, PlacaFilterPoco) 
