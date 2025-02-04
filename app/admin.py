@@ -1,5 +1,5 @@
 from django.db import transaction  # Adicionando esta importação
-from .forms import TransferPlacasForm  # Adicione esta importação no início do arquivo
+from .forms import TransferPlacasForm, Transfer384to384Form, Transfer384to1536Form# Adicione esta importação no início do arquivo
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth import get_user_model
@@ -24,7 +24,168 @@ from django.contrib.auth.admin import GroupAdmin
 logger = logging.getLogger(__name__)
 
 
+# FILTROS
+
+class EmpresaFilter(admin.SimpleListFilter):
+    title = 'Empresa'
+    parameter_name = 'empresa'
+
+    def lookups(self, request, model_admin):
+        if request.user.is_superuser:
+            empresas = Empresa.objects.all()
+        else:
+            empresas = Empresa.objects.filter(id=request.user.empresa.id)
+        return [(empresa.id, empresa.nome) for empresa in empresas]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(empresa_id=self.value())
+        return queryset
+
+class ProjetoFilter(admin.SimpleListFilter):
+    title = 'Projeto'
+    parameter_name = 'projeto'
+
+    def lookups(self, request, model_admin):
+        # Pega o valor do filtro de empresa
+        empresa_id = request.GET.get('empresa')
+        if empresa_id:
+            projetos = Projeto.objects.filter(empresa_id=empresa_id, ativo=True)
+        else:
+            if request.user.is_superuser:
+                projetos = Projeto.objects.filter(ativo=True)
+            else:
+                projetos = Projeto.objects.filter(empresa=request.user.empresa, ativo=True)
+        return [(projeto.id, f"{projeto.codigo_projeto} - {projeto.nome_projeto_cliente or 'Sem nome'}") 
+                for projeto in projetos]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(projeto_id=self.value())
+        return queryset
+
+class PlacaFilter(admin.SimpleListFilter):
+    title = 'Placa'
+    parameter_name = 'placa'
+
+    def lookups(self, request, model_admin):
+        # Pega o valor do filtro de projeto
+        projeto_id = request.GET.get('projeto')
+        if projeto_id:
+            # Ajuste o modelo de placa conforme necessário (Placa96, Placa384, Placa1536)
+            placas = model_admin.placa_model.objects.filter(
+                projeto_id=projeto_id,
+                is_active=True
+            )
+            return [(placa.id, placa.codigo_placa) for placa in placas]
+        return []
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(placa_id=self.value())
+        return queryset
+
+class ProjetoFilterPoco(admin.SimpleListFilter):
+    title = 'Projeto'
+    parameter_name = 'projeto'
+
+    def lookups(self, request, model_admin):
+        empresa_id = request.GET.get('empresa')
+        if empresa_id:
+            projetos = Projeto.objects.filter(empresa_id=empresa_id, ativo=True)
+        else:
+            if request.user.is_superuser:
+                projetos = Projeto.objects.filter(ativo=True)
+            else:
+                projetos = Projeto.objects.filter(empresa=request.user.empresa, ativo=True)
+        return [(projeto.id, f"{projeto.codigo_projeto} - {projeto.nome_projeto_cliente or 'Sem nome'}") 
+                for projeto in projetos]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(placa__projeto_id=self.value())
+        return queryset
+
+class PlacaFilterPoco(admin.SimpleListFilter):
+    title = 'Placa'
+    parameter_name = 'placa'
+
+    def lookups(self, request, model_admin):
+        projeto_id = request.GET.get('projeto')
+        if projeto_id:
+            placas = model_admin.placa_model.objects.filter(
+                projeto_id=projeto_id,
+                is_active=True
+            )
+            return [(placa.id, placa.codigo_placa) for placa in placas]
+        return []
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(placa_id=self.value())
+        return queryset
+
+class ProjetoFilterMap(admin.SimpleListFilter):
+    title = 'Projeto'
+    parameter_name = 'projeto'
+
+    def lookups(self, request, model_admin):
+        empresa_id = request.GET.get('empresa')
+        if empresa_id:
+            projetos = Projeto.objects.filter(empresa_id=empresa_id, ativo=True)
+        else:
+            if request.user.is_superuser:
+                projetos = Projeto.objects.filter(ativo=True)
+            else:
+                projetos = Projeto.objects.filter(empresa=request.user.empresa, ativo=True)
+        return [(projeto.id, f"{projeto.codigo_projeto} - {projeto.nome_projeto_cliente or 'Sem nome'}") 
+                for projeto in projetos]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(placa_destino__projeto_id=self.value())
+        return queryset
+
+class PlacaOrigemFilter(admin.SimpleListFilter):
+    title = 'Placa Origem'
+    parameter_name = 'placa_origem'
+
+    def lookups(self, request, model_admin):
+        projeto_id = request.GET.get('projeto')
+        if projeto_id:
+            placas = model_admin.placa_origem_model.objects.filter(
+                projeto_id=projeto_id,
+                is_active=True
+            )
+            return [(placa.id, placa.codigo_placa) for placa in placas]
+        return []
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(placa_origem_id=self.value())
+        return queryset
+
+class PlacaDestinoFilter(admin.SimpleListFilter):
+    title = 'Placa Destino'
+    parameter_name = 'placa_destino'
+
+    def lookups(self, request, model_admin):
+        projeto_id = request.GET.get('projeto')
+        if projeto_id:
+            placas = model_admin.placa_destino_model.objects.filter(
+                projeto_id=projeto_id,
+                is_active=True
+            )
+            return [(placa.id, placa.codigo_placa) for placa in placas]
+        return []
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(placa_destino_id=self.value())
+        return queryset
+
 # CUSTOMIZACAO DO ADMIN SITE
+
 class CustomAdminSite(AdminSite):
     site_header = 'SGL'
     site_title = 'SGL Admin'
@@ -49,18 +210,18 @@ class CustomAdminSite(AdminSite):
                     'Placa 1536': 'app.placa1536',
                 },
             },
+            'Mapeamentos': {
+                'models': {
+                    'Map 96 -> 384': 'app.placamap384',
+                    'Map 384 -> 384': 'app.placamap384to384',
+                    'Map 384 -> 1536': 'app.placamap1536',
+                },
+            },
             'Poços': {
                 'models': {
                     'Poços das Placas 96': 'app.poco96',
                     'Poços das Placas 384': 'app.poco384',
                     'Poços das Placas 1536': 'app.poco1536',
-                },
-            },
-            'Mapeamentos': {
-                'models': {
-                    'Mapeamento 96 -> 384': 'app.placamap384',
-                    'Mapeamento 384 -> 384': 'app.placamap384to384',
-                    'Mapeamento 384 -> 1536': 'app.placamap1536',
                 },
             },
             'Resultados': {
@@ -195,7 +356,8 @@ class EmpresaAdminMixin:
 
 # @admin_site.register(Projeto)
 class ProjetoAdmin(EmpresaAdminMixin, admin.ModelAdmin):
-    list_display = ('empresa','empresa__nome','codigo_projeto',  'status', 'cultivo', 'created_at')
+    list_display = ('empresa','empresa__nome','codigo_projeto', 'quantidade_amostras', 'status', 'cultivo', 'created_at')
+    list_display_links = ["codigo_projeto"]
     list_filter = ('empresa','codigo_projeto', 'status', 'cultivo')  # Empresa primeiro para facilitar filtragem
     search_fields = ('codigo_projeto', 'nome_projeto_cliente', 'empresa__nome')
     
@@ -257,10 +419,11 @@ admin_site.register(Amostra, AmostraAdmin)
 
 # @admin_site.register(Placa96)
 class Placa96Admin(EmpresaAdminMixin, admin.ModelAdmin):
-    list_display = ('empresa', 'empresa__nome','projeto','codigo_placa',  'data_criacao', 'get_amostras_count', 'is_active')
-    list_filter = ('empresa','projeto__codigo_projeto',  'data_criacao', 'is_active')
+    list_display = ('empresa', 'empresa__nome','projeto','codigo_placa', 'get_amostras_count',  'data_criacao', 'is_active')
+    list_display_links=['codigo_placa']
+    list_filter = (EmpresaFilter, ProjetoFilter,  'data_criacao', 'is_active')
     search_fields = ('codigo_placa', 'projeto__codigo_projeto')
-    inlines = [Poco96Inline]
+    # inlines = [Poco96Inline]
     autocomplete_fields = ['projeto']
 
     def get_queryset(self, request):
@@ -270,8 +433,9 @@ admin_site.register(Placa96, Placa96Admin)
 
 # @admin_site.register(Placa384)
 class Placa384Admin(admin.ModelAdmin):
-   list_display = ('empresa', 'empresa__nome','projeto','codigo_placa',  'data_criacao', 'is_active')
-   list_filter = ('empresa', 'projeto', 'is_active')
+   list_display = ('empresa', 'empresa__nome','projeto','codigo_placa', 'get_amostras_count', 'data_criacao', 'is_active')
+   list_display_links=['codigo_placa']
+   list_filter = (EmpresaFilter, ProjetoFilter, 'codigo_placa','is_active')
    search_fields = ('codigo_placa', 'projeto__codigo_projeto')
 
    def get_urls(self):
@@ -292,8 +456,94 @@ class Placa384Admin(admin.ModelAdmin):
                self.admin_site.admin_view(self.get_placas_96_view),
                name='get_placas_96_admin'
            ),
+        path(
+            'transferir-384-384/',
+            self.admin_site.admin_view(self.transferir_384_384_view),
+            name='app_placa384_transferir_384_384'
+        ),
+        path(
+            'get-projetos-384/<int:empresa_id>/',
+            self.admin_site.admin_view(self.get_projetos_384_view),
+            name='get_projetos_384_admin'
+        ),
+        path(
+            'get-placas-384-origem/<int:projeto_id>/',
+            self.admin_site.admin_view(self.get_placas_384_origem_view),
+            name='get_placas_384_origem_admin'
+        ),
+                path(
+            'transferir-384-1536/',
+            self.admin_site.admin_view(self.transferir_384_1536_view),
+            name='app_placa384_transferir_384_1536'
+        ),
+        path(
+            'get-projetos-1536/<int:empresa_id>/',
+            self.admin_site.admin_view(self.get_projetos_1536_view),
+            name='get_projetos_1536_admin'
+        ),
+        path(
+            'get-placas-384-para-1536/<int:projeto_id>/',
+            self.admin_site.admin_view(self.get_placas_384_para_1536_view),
+            name='get_placas_384_para_1536_admin'
+        ),
        ]
        return custom_urls + urls
+
+# admin.py - na classe Placa384Admin
+
+   def get_projetos_384_view(self, request, empresa_id):
+        """API endpoint para buscar projetos de uma empresa"""
+        try:
+            if not request.user.is_superuser and request.user.empresa.id != empresa_id:
+                return JsonResponse({'error': 'Sem permissão'}, status=403)
+            
+            # Buscar projetos ativos com placas 384
+            projetos = Projeto.objects.filter(
+                empresa_id=empresa_id,
+                ativo=True,
+                placa384__isnull=False  # Garante que só retorna projetos com placas 384
+            ).distinct().values('id', 'codigo_projeto', 'nome_projeto_cliente')
+            
+            projetos_list = [
+                {
+                    'id': projeto['id'],
+                    'text': f"{projeto['codigo_projeto']} - {projeto['nome_projeto_cliente'] or ''}"
+                }
+                for projeto in projetos
+            ]
+            
+            return JsonResponse({'results': projetos_list})
+            
+        except Exception as e:
+            print(f"Erro ao buscar projetos: {str(e)}")  # Adicione este log
+            return JsonResponse({'error': str(e)}, status=400)
+        
+   def get_placas_384_origem_view(self, request, projeto_id):
+        """API endpoint para buscar placas 384 disponíveis de um projeto"""
+        try:
+            projeto = Projeto.objects.get(id=projeto_id)
+            
+            if not request.user.is_superuser and request.user.empresa != projeto.empresa:
+                return JsonResponse({'error': 'Sem permissão'}, status=403)
+            
+            # Buscar placas 384 ativas do projeto
+            placas = Placa384.objects.filter(
+                projeto_id=projeto_id,
+                is_active=True
+            ).values('id', 'codigo_placa')
+            
+            placas_list = [
+                {
+                    'id': placa['id'],
+                    'text': f"{placa['codigo_placa']}"
+                }
+                for placa in placas
+            ]
+            
+            return JsonResponse({'results': placas_list})
+            
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
 
    def get_projetos_view(self, request, empresa_id):
        """API para buscar projetos de uma empresa"""
@@ -303,8 +553,9 @@ class Placa384Admin(admin.ModelAdmin):
                
            projetos = Projeto.objects.filter(
                empresa_id=empresa_id,
-               ativo=True
-           ).values('id', 'codigo_projeto', 'nome_projeto_cliente')
+               ativo=True,
+               placa96__is_active=True,
+           ).distinct().values('id', 'codigo_projeto', 'nome_projeto_cliente')
            
            projetos_list = [
                {
@@ -390,48 +641,230 @@ class Placa384Admin(admin.ModelAdmin):
 
        context['form'] = form
        return render(request, 'admin/app/placa384/transferir_96_384.html', context)
+
+   def transferir_384_384_view(self, request):
+        context = {
+            'title': 'Transferir Placa 384 para 384',
+            'opts': self.model._meta,
+            **admin.site.each_context(request),
+        }
+
+        if request.method == 'POST':
+            form = Transfer384to384Form(request.POST, user=request.user)
+            if form.is_valid():
+                try:
+                    with transaction.atomic():
+                        empresa = form.cleaned_data['empresa']
+                        projeto = form.cleaned_data['projeto']
+                        placa_origem = form.cleaned_data['placa_origem']
+                        codigo_placa_384_destino = form.cleaned_data['codigo_placa_384_destino']
+
+                        # Criar nova placa 384
+                        placa_destino = Placa384.objects.create(
+                            empresa=empresa,
+                            projeto=projeto,
+                            codigo_placa=codigo_placa_384_destino
+                        )
+
+                        # Realizar a transferência
+                        placa_origem.transfer_384_to_384(placa_destino)
+
+                        messages.success(request, 'Placa 384 criada com sucesso!')
+                        return redirect('admin:app_placa384_change', placa_destino.id)
+
+                except ValidationError as e:
+                    messages.error(request, str(e))
+                except Exception as e:
+                    messages.error(request, f'Erro: {str(e)}')
+        else:
+            form = Transfer384to384Form(user=request.user)
+
+        context['form'] = form
+        return render(request, 'admin/app/placa384/transferir_384_384.html', context)
+   
+   def transferir_384_1536_view(self, request):
+        context = {
+            'title': 'Transferir Placas 384 para 1536',
+            'opts': self.model._meta,
+            **admin.site.each_context(request),
+        }
+
+        if request.method == 'POST':
+            form = Transfer384to1536Form(request.POST, user=request.user)
+            if form.is_valid():
+                try:
+                    with transaction.atomic():
+                        empresa = form.cleaned_data['empresa']
+                        projeto = form.cleaned_data['projeto']
+                        codigo_placa_1536 = form.cleaned_data['codigo_placa_1536']
+                        placas_384 = [
+                            form.cleaned_data['placa_1'],
+                            form.cleaned_data['placa_2'],
+                            form.cleaned_data['placa_3'],
+                            form.cleaned_data['placa_4']
+                        ]
+                        
+                        # Filtrar placas não nulas
+                        placas_384 = [placa for placa in placas_384 if placa is not None]
+
+                        # Criar placa 1536
+                        placa_1536 = Placa1536.objects.create(
+                            empresa=empresa,
+                            projeto=projeto,
+                            codigo_placa=codigo_placa_1536
+                        )
+
+                        # Realizar transferência
+                        placa_1536.transfer_384_to_1536(placas_384)
+
+                        messages.success(request, 'Placa 1536 criada com sucesso!')
+                        return redirect('admin:app_placa1536_change', placa_1536.id)
+
+                except ValidationError as e:
+                    messages.error(request, str(e))
+                except Exception as e:
+                    messages.error(request, f'Erro: {str(e)}')
+        else:
+            form = Transfer384to1536Form(user=request.user)
+
+        context['form'] = form
+        return render(request, 'admin/app/placa384/transferir_384_1536.html', context)
+
+   def get_projetos_1536_view(self, request, empresa_id):
+        """API endpoint para buscar projetos de uma empresa"""
+        try:
+            if not request.user.is_superuser and request.user.empresa.id != empresa_id:
+                return JsonResponse({'error': 'Sem permissão'}, status=403)
+            
+            # Buscar projetos ativos com placas 384 disponíveis
+            projetos = Projeto.objects.filter(
+                empresa_id=empresa_id,
+                ativo=True,
+                placa384__is_active=True
+            ).distinct().values('id', 'codigo_projeto')
+            
+            projetos_list = [
+                {
+                    'id': projeto['id'],
+                    'text': f"{projeto['codigo_projeto']}"
+                }
+                for projeto in projetos
+            ]
+            
+            return JsonResponse({'results': projetos_list})
+            
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+   def get_placas_384_para_1536_view(self, request, projeto_id):
+        """API endpoint para buscar placas 384 disponíveis"""
+        try:
+            projeto = Projeto.objects.get(id=projeto_id)
+            
+            if not request.user.is_superuser and request.user.empresa != projeto.empresa:
+                return JsonResponse({'error': 'Sem permissão'}, status=403)
+            
+            placas = Placa384.objects.filter(
+                projeto_id=projeto_id,
+                is_active=True
+            ).values('id', 'codigo_placa')
+            
+            placas_list = [
+                {
+                    'id': placa['id'],
+                    'text': f"{placa['codigo_placa']}"
+                }
+                for placa in placas
+            ]
+            
+            return JsonResponse({'results': placas_list})
+            
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+   def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        extra_context['show_transfer_button'] = True
+        return super().changelist_view(request, extra_context)
+
 admin_site.register(Placa384, Placa384Admin)
    
 
 # @admin_site.register(Placa1536)
 class Placa1536Admin(EmpresaAdminMixin, admin.ModelAdmin):
-    list_display = ('empresa', 'empresa__nome','projeto', 'codigo_placa', 'data_criacao', 'get_amostras_count', 'is_active')
-    list_filter = ('empresa','projeto__codigo_projeto',  'data_criacao', 'is_active')
+    list_display = ('empresa', 'empresa__nome','projeto', 'codigo_placa', 'get_amostras_count','data_criacao',  'is_active')
+    list_display_links=['codigo_placa']
+    list_filter = (EmpresaFilter, ProjetoFilter,  'data_criacao', 'is_active')
     search_fields = ('codigo_placa', 'projeto__codigo_projeto')
-    inlines = [Poco1536Inline, PlacaMap1536Inline]
+    # inlines = [Poco1536Inline, PlacaMap1536Inline]
     autocomplete_fields = ['projeto']
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('projeto', 'empresa')
-admin_site.register(Placa1536, Placa1536Admin)
 
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        extra_context['show_transfer_button'] = True
+        return super().changelist_view(request, extra_context)
+
+admin_site.register(Placa1536, Placa1536Admin)
 
 # Mapeamentos
 
 # @admin_site.register(PlacaMap384)
 class PlacaMap384Admin(EmpresaAdminMixin, admin.ModelAdmin):
-    list_display = ('empresa', 'empresa__nome','placa_origem', 'placa_destino', 'quadrante' )
-    list_filter = ('empresa', 'placa_destino','placa_origem', 'quadrante')
+    list_display = ('empresa', 'empresa__nome', 'placa_origem', 'placa_destino', 'quadrante')
+    list_display_links=['placa_origem']
+    list_filter = (EmpresaFilter, ProjetoFilterMap, PlacaOrigemFilter, PlacaDestinoFilter)
     search_fields = ('placa_origem__codigo_placa', 'placa_destino__codigo_placa')
-    raw_id_fields = ['placa_origem', 'placa_destino']  # Mudando de autocomplete para raw_id
+    raw_id_fields = ['placa_origem', 'placa_destino']
+
+    placa_origem_model = Placa96
+    placa_destino_model = Placa384
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'placa_origem', 'placa_destino', 'empresa',
+            'placa_origem__projeto', 'placa_destino__projeto'
+        )
 admin_site.register(PlacaMap384, PlacaMap384Admin)
 
 
 # @admin_site.register(PlacaMap1536)
 class PlacaMap1536Admin(EmpresaAdminMixin, admin.ModelAdmin):
-    list_display = ('empresa', 'empresa__nome','placa_origem', 'placa_destino', 'quadrante')
-    list_filter = ('empresa','placa_destino','placa_origem', 'quadrante')
+    list_display = ('empresa', 'empresa__nome', 'placa_origem', 'placa_destino', 'quadrante')  
+    list_display_links=['placa_origem']
+    list_filter = (EmpresaFilter, ProjetoFilterMap, PlacaOrigemFilter, PlacaDestinoFilter)
     search_fields = ('placa_origem__codigo_placa', 'placa_destino__codigo_placa')
-    raw_id_fields = ['placa_origem', 'placa_destino']  # Mudando de autocomplete para raw_id
+    raw_id_fields = ['placa_origem', 'placa_destino']
+
+    placa_origem_model = Placa384
+    placa_destino_model = Placa1536
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'placa_origem', 'placa_destino', 'empresa',
+            'placa_origem__projeto', 'placa_destino__projeto'
+        )
 admin_site.register(PlacaMap1536, PlacaMap1536Admin)
 
 
 # @admin_site.register(PlacaMap384to384)
 class PlacaMap384to384Admin(EmpresaAdminMixin, admin.ModelAdmin):
-    list_display = ('empresa', 'empresa__nome','placa_origem', 'placa_destino', 'data_transferencia')
-    list_filter = ('empresa', 'placa_destino','placa_origem')
+    list_display = ('empresa', 'empresa__nome', 'placa_origem', 'placa_destino', 'data_transferencia')
+    list_display_links=['placa_origem']
+    list_filter = (EmpresaFilter, ProjetoFilterMap, PlacaOrigemFilter, PlacaDestinoFilter)
     search_fields = ('placa_origem__codigo_placa', 'placa_destino__codigo_placa')
     raw_id_fields = ['placa_origem', 'placa_destino']
+
+    placa_origem_model = Placa384
+    placa_destino_model = Placa384
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'placa_origem', 'placa_destino', 'empresa',
+            'placa_origem__projeto', 'placa_destino__projeto'
+        )
 admin_site.register(PlacaMap384to384, PlacaMap384to384Admin)
 
 
@@ -470,28 +903,41 @@ admin_site.register(Resultado, ResultadoAdmin)
 
 # @admin_site.register(Poco96)
 class Poco96Admin(EmpresaAdminMixin, admin.ModelAdmin):
-    list_display = ('empresa', 'empresa__nome','placa__projeto', 'placa', 'posicao', 'amostra',)
-    list_filter = ('empresa','placa__projeto', 'placa')
+    list_display = ('empresa', 'empresa__nome', 'placa', 'posicao', 'amostra',)
+    list_display_links=['posicao']
+    list_filter = (EmpresaFilter, ProjetoFilterPoco, PlacaFilterPoco)
     search_fields = ('placa__codigo_placa', 'posicao', 'amostra__codigo_amostra')
     autocomplete_fields = ['placa', 'amostra']
+    placa_model = Placa96
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'placa', 'placa__projeto', 'empresa', 'amostra'
+        )
+    
 admin_site.register(Poco96, Poco96Admin)
 
 
 # @admin_site.register(Poco384)
 class Poco384Admin(EmpresaAdminMixin, admin.ModelAdmin):
     list_display = ('empresa', 'empresa__nome','placa', 'posicao', 'amostra')
-    list_filter = ('empresa',)
+    list_display_links=['posicao']
+    list_filter = (EmpresaFilter, ProjetoFilterPoco, PlacaFilterPoco)  # Filtros aninhados
     search_fields = ('placa__codigo_placa', 'posicao', 'amostra__codigo_amostra')
     raw_id_fields = ['placa', 'amostra']  # Mudando de autocomplete para raw_id
+    placa_model = Placa384  # Necessário para o PlacaFilter
+
 admin_site.register(Poco384, Poco384Admin)
 
 
 # @admin_site.register(Poco1536)
 class Poco1536Admin(EmpresaAdminMixin, admin.ModelAdmin):
     list_display = ('empresa', 'empresa__nome','placa', 'posicao', 'amostra')
-    list_filter = ('empresa','placa__projeto')
+    list_display_links=['posicao']
+    list_filter = (EmpresaFilter, ProjetoFilterPoco, PlacaFilterPoco) 
     search_fields = ('placa__codigo_placa', 'posicao', 'amostra__codigo_amostra')
     autocomplete_fields = ['placa', 'amostra']
+    placa_model = Placa1536
+
 admin_site.register(Poco1536, Poco1536Admin)
 
 

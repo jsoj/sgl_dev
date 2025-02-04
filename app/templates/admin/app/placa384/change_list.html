@@ -4,8 +4,15 @@
 {% block object-tools-items %}
     <li>
         <a href="{% url 'admin:app_placa384_transferir_96_384' %}" class="addlink">
-            Transferir Placas 96 para 384
+            Transferir Placas 96 -> 384
         </a>
+
+        <a href="{% url 'admin:app_placa384_transferir_384_384' %}" class="addlink">
+            Transferir Placas 384 -> 384
+        </a>
+            <a href="{% url 'admin:app_placa384_transferir_384_1536' %}" class="addlink">
+                Transferir Placas 384 -> 1536
+            </a>
     </li>
     {{ block.super }}
 {% endblock %}

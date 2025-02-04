@@ -1,0 +1,110 @@
+<!-- templates/admin/app/placa384/transferir_384_384.html -->
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block content %}
+<div id="content-main">
+    <form method="post">
+        {% csrf_token %}
+        
+        <fieldset class="module aligned">
+            {% for field in form %}
+            <div class="form-row">
+                {{ field.errors }}
+                {{ field.label_tag }}
+                {{ field }}
+                {% if field.help_text %}
+                <div class="help">{{ field.help_text|safe }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </fieldset>
+
+        <div class="submit-row">
+            <input type="submit" value="Transferir Placa" class="default" />
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const empresaSelect = document.getElementById('id_empresa');
+    const projetoSelect = document.getElementById('id_projeto');
+    const placaOrigemSelect = document.getElementById('id_placa_origem');
+    
+    // Função auxiliar para fazer requisições fetch
+    async function fetchData(url) {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            console.log('Dados recebidos:', data); // Log para debug
+            return data;
+        } catch (error) {
+            console.error('Erro ao buscar dados:', error);
+            throw error;
+        }
+    }
+
+    // Função para atualizar os projetos
+    async function atualizarProjetos() {
+        try {
+            const empresaId = empresaSelect.value;
+            projetoSelect.innerHTML = '<option value="">---------</option>';
+            placaOrigemSelect.innerHTML = '<option value="">---------</option>';
+
+            if (empresaId) {
+                console.log('Buscando projetos para empresa:', empresaId); // Log para debug
+                const data = await fetchData(`/admin/app/placa384/get-projetos-384/${empresaId}/`);
+                
+                if (data.results && data.results.length > 0) {
+                    data.results.forEach(projeto => {
+                        const option = document.createElement('option');
+                        option.value = projeto.id;
+                        option.textContent = projeto.text;
+                        projetoSelect.appendChild(option);
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Erro ao atualizar projetos:', error);
+        }
+    }
+
+    // Função para atualizar as placas
+    async function atualizarPlacas() {
+        try {
+            const projetoId = projetoSelect.value;
+            placaOrigemSelect.innerHTML = '<option value="">---------</option>';
+
+            if (projetoId) {
+                console.log('Buscando placas para projeto:', projetoId); // Log para debug
+                const data = await fetchData(`/admin/app/placa384/get-placas-384-origem/${projetoId}/`);
+                
+                if (data.results && data.results.length > 0) {
+                    data.results.forEach(placa => {
+                        const option = document.createElement('option');
+                        option.value = placa.id;
+                        option.textContent = placa.text;
+                        placaOrigemSelect.appendChild(option);
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Erro ao atualizar placas:', error);
+        }
+    }
+
+    // Eventos
+    empresaSelect.addEventListener('change', atualizarProjetos);
+    projetoSelect.addEventListener('change', atualizarPlacas);
+
+    // Inicialização
+    if (empresaSelect.value) {
+        atualizarProjetos();
+    }
+});
+</script>
+{% endblock %}

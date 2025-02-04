@@ -1,0 +1,12 @@
+<!-- templates/admin/app/placa1536/change_list.html -->
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls %}
+
+{% block object-tools-items %}
+    <li>
+        <a href="{% url 'admin:app_placa384_transferir_384_1536' %}" class="addlink">
+            Transferir Placas 384 -> 1536
+        </a>
+    </li>
+    {{ block.super }}
+{% endblock %}

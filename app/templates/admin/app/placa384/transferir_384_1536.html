@@ -1,0 +1,127 @@
+<!-- templates/admin/app/placa384/transferir_384_1536.html -->
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrahead %}
+{{ block.super }}
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<style>
+    .placa-selection {
+        margin-bottom: 20px;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+    .help-text {
+        color: #666;
+        font-size: 0.8em;
+        margin-top: 4px;
+    }
+    .placa-diagram {
+        margin: 20px 0;
+        padding: 15px;
+        background: #f9f9f9;
+        border-radius: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <form method="post">
+        {% csrf_token %}
+        
+        <fieldset class="module aligned">
+            {% for field in form %}
+            <div class="form-row">
+                {{ field.errors }}
+                {{ field.label_tag }}
+                {{ field }}
+                {% if field.help_text %}
+                <div class="help">{{ field.help_text|safe }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </fieldset>
+
+        <div class="submit-row">
+            <input type="submit" value="Transferir para Placa 1536" class="default" />
+        </div>
+    </form>
+</div>
+
+<script>
+$(document).ready(function() {
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    $.ajaxSetup({
+        headers: {'X-CSRFToken': csrftoken}
+    });
+
+    $('#id_empresa').change(function() {
+        const empresaId = $(this).val();
+        const projetoSelect = $('#id_projeto');
+        const placaSelects = $('[id^="id_placa_"]');
+        
+        // Reseta os selects
+        projetoSelect.empty().prop('disabled', true);
+        projetoSelect.append('<option value="">Selecione um projeto</option>');
+        
+        placaSelects.empty().prop('disabled', true);
+        placaSelects.append('<option value="">Selecione uma placa</option>');
+        
+        if (!empresaId) return;
+
+        $.ajax({
+            url: `/admin/app/placa384/get-projetos-1536/${empresaId}/`,
+            method: 'GET',
+            success: function(data) {
+                if (data.results) {
+                    data.results.forEach(function(projeto) {
+                        projetoSelect.append(
+                            `<option value="${projeto.id}">${projeto.text}</option>`
+                        );
+                    });
+                    projetoSelect.prop('disabled', false);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Erro:', error);
+                alert('Erro ao carregar projetos');
+            }
+        });
+    });
+
+    $('#id_projeto').change(function() {
+        const projetoId = $(this).val();
+        const placaSelects = $('[id^="id_placa_"]');
+        
+        placaSelects.empty().prop('disabled', true);
+        placaSelects.append('<option value="">Selecione uma placa</option>');
+        
+        if (!projetoId) return;
+
+        $.ajax({
+            url: `/admin/app/placa384/get-placas-384-para-1536/${projetoId}/`,
+            method: 'GET',
+            success: function(data) {
+                if (data.results) {
+                    data.results.forEach(function(placa) {
+                        placaSelects.each(function() {
+                            $(this).append(
+                                `<option value="${placa.id}">${placa.text}</option>`
+                            );
+                        });
+                    });
+                    placaSelects.prop('disabled', false);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Erro:', error);
+                alert('Erro ao carregar placas');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
