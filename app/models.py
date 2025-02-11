@@ -7,6 +7,10 @@ from django.core.exceptions import PermissionDenied
 from django.contrib.auth.models import AbstractUser
 from SGL.settings import AUTH_USER_MODEL
 from django.conf import settings
+from django.core.mail import EmailMessage
+import os  
+from django.core.validators import FileExtensionValidator
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class Empresa(models.Model):
     nome = models.CharField(max_length=100)
-    codigo = models.CharField(max_length=4)
+    codigo = models.CharField(max_length=5)
     cnpj = models.CharField(max_length=14, unique=True)
     cep = models.CharField(max_length=10, blank=True, null=True)
     endereco = models.CharField(max_length=100, blank=True, null=True)
@@ -127,8 +131,9 @@ class Marcador(EmpresaMixin, models.Model):
 # INICIO PROJETO 
 
 class Projeto(EmpresaMixin, models.Model):
-    codigo_projeto = models.CharField(max_length=3, blank=False, 
-                                    help_text='Código do projeto são 3 números sequenciais e únicos para o cliente. Exemplo: 001')
+
+    codigo_projeto = models.CharField(max_length=5, blank=False, 
+                                    help_text='Código do projeto são 5 números sequenciais e únicos para o cliente. Exemplo: 00001')
     quantidade_amostras = models.PositiveIntegerField(                  blank=False,    null=False,                                         help_text='Quantidade de amostras deste projeto. Exemplo: 15.000')
     cultivo = models.ForeignKey(Cultivo,                                blank=True,     null=True,  default=1,  on_delete=models.CASCADE,   help_text='Escolha ou cadastre um cultivo. Exemplo: Soja')
     origem_amostra = models.CharField(                  max_length=10,  blank=True, choices=ORIGEM_CHOICES, default=1,                      help_text='Origem da amostra no cliente. Exemplo: Planta, Linha, Semente')
@@ -442,10 +447,13 @@ class Projeto(EmpresaMixin, models.Model):
         ).values('quantidade_amostras', 'tempo_processamento')
         return list(projetos)
 
-
-# Métodos para criação automatica de placas, amostras e poços 
+# Métodos para criação automatica de template, placas, amostras e poços 
 #---------------------------------------------------------------------------
 
+    def gerar_template_pdf(self):
+        print("gerar template foi ativado")
+        from .template import generate_plate_template
+        return generate_plate_template(self, self.empresa)
 
     def generate_plate_code(self, plate_number):
         """Gera um código único para a placa baseado no projeto e número sequencial"""
@@ -469,82 +477,90 @@ class Projeto(EmpresaMixin, models.Model):
         Cria placas, amostras e poços para o projeto.
         Retorna um dicionário com os recursos criados.
         """
+        print(f"Iniciando criação de recursos para o projeto {self.codigo_projeto}")
         try:
             with transaction.atomic():
                 # Calcula número de placas necessárias (96 poços por placa)
                 num_plates = -(-self.quantidade_amostras // 92)  # 92 poços úteis por placa
+                print(f"Número de placas necessárias: {num_plates}")
                 
                 # Cria a amostra de controle NTC
+                print("Criando amostra NTC...")
                 ntc_sample = Amostra.objects.create(
                     empresa=self.empresa,
                     projeto=self,
                     codigo_amostra=f"{self.codigo_projeto}NTC"
                 )
+                print("Amostra NTC criada")
                 
                 # Cria as placas
+                print("Criando placas...")
                 plates = []
                 for plate_num in range(1, num_plates + 1):
                     plate = Placa96.objects.create(
                         empresa=self.empresa,
                         projeto=self,
-                        codigo_placa=self.generate_plate_code(plate_num)
+                        codigo_placa=f"{self.empresa.codigo}-{self.codigo_projeto}-{plate_num:03d}"
                     )
                     plates.append(plate)
+                print(f"{len(plates)} placas criadas")
 
                 # Cria as amostras
+                print("Criando amostras...")
                 samples = []
                 for sample_num in range(1, self.quantidade_amostras + 1):
                     sample = Amostra.objects.create(
                         empresa=self.empresa,
                         projeto=self,
-                        codigo_amostra=self.generate_sample_code(sample_num)
+                        codigo_amostra=f"{self.empresa.codigo}-{self.codigo_projeto}-{sample_num:05d}"
                     )
                     samples.append(sample)
+                print(f"{len(samples)} amostras criadas")
 
                 # Cria os poços e atribui as amostras
+                print("Criando poços...")
                 wells = []
                 sample_index = 0
                 
                 for plate in plates:
-                    # Cria os poços de controle NTC (A01, B1, C1, D1)
+                    # Cria os poços de controle NTC
                     control_positions = ['A01', 'B01', 'C01', 'D01']
                     for pos in control_positions:
                         well = Poco96.objects.create(
                             empresa=self.empresa,
                             placa=plate,
-                            amostra=ntc_sample,  # Usa a amostra NTC
+                            amostra=ntc_sample,
                             posicao=pos
                         )
                         wells.append(well)
 
                     # Cria os poços para as amostras
-                    for well_idx in range(96):
-                        pos = self.calculate_well_position(well_idx)
-                        if pos in control_positions:
-                            continue
-                            
-                        if sample_index < len(samples):
-                            well = Poco96.objects.create(
-                                empresa=self.empresa,
-                                placa=plate,
-                                amostra=samples[sample_index],
-                                posicao=pos
-                            )
-                            wells.append(well)
-                            sample_index += 1
+                    for row in range(8):
+                        for col in range(12):
+                            pos = f"{chr(65+row)}{col+1:02d}"
+                            if pos not in control_positions:
+                                if sample_index < len(samples):
+                                    well = Poco96.objects.create(
+                                        empresa=self.empresa,
+                                        placa=plate,
+                                        amostra=samples[sample_index],
+                                        posicao=pos
+                                    )
+                                    wells.append(well)
+                                    sample_index += 1
 
+                print(f"{len(wells)} poços criados")
                 return {
                     'plates': plates,
                     'samples': samples,
                     'wells': wells,
-                    'ntc_sample': ntc_sample,
-                    'total_plates': len(plates),
-                    'total_samples': len(samples),
-                    'total_wells': len(wells)
+                    'ntc_sample': ntc_sample
                 }
 
         except Exception as e:
             print(f"Erro ao criar recursos do projeto: {str(e)}")
+            import traceback
+            traceback.print_exc()
             raise
 
     def get_resources_summary(self):
@@ -561,39 +577,174 @@ class Projeto(EmpresaMixin, models.Model):
             )
         }
 
+        #---------------------------------------------------------------------------
+
+    def enviar_template_email(self, pdf_path):
+        """
+        Envia o template PDF por email e mantém o arquivo para consulta
+        :param pdf_path: Caminho do arquivo PDF gerado
+        """
+        try:
+            # Lista de destinatários
+            destinatarios = ['contato@agromarkers.com.br']
+            if self.empresa.email:
+                destinatarios.append(self.empresa.email)
+
+            # Preparar email
+            subject = f'Template de Placas - Projeto {self.codigo_projeto}'
+            body = f"""
+            Segue em anexo o template de placas para o projeto:
+            
+            Empresa: {self.empresa.nome}
+            Código do Projeto: {self.codigo_projeto}
+            Nome do Projeto: {self.nome_projeto_cliente}
+            Quantidade de Amostras: {self.quantidade_amostras}
+            """
+
+            # Criar email
+            email = EmailMessage(
+                subject=subject,
+                body=body,
+                from_email=settings.EMAIL_HOST_USER,
+                to=destinatarios
+            )
+
+            # Anexar PDF
+            if os.path.exists(pdf_path):
+                with open(pdf_path, 'rb') as pdf:
+                    email.attach(
+                        os.path.basename(pdf_path),
+                        pdf.read(),
+                        'application/pdf'
+                    )
+                
+                # Configurado para usar o console backend em desenvolvimento
+                email.send()
+                print(f"Email enviado com sucesso para {destinatarios}")
+                print(f"PDF mantido em: {pdf_path}")
+            else:
+                print(f"Arquivo PDF não encontrado: {pdf_path}")
+
+        except Exception as e:
+            print(f"Erro ao enviar email: {str(e)}")
+
+# Removida a parte que apagava o arquivo
+
 #---------------------------------------------------------------------------
 
+    # def save(self, *args, **kwargs):
+    #     with transaction.atomic():
+    #         is_new = self.pk is None  # Verifica se é uma criação nova
+    #         user = kwargs.pop('user', None)
+    #         empresa = kwargs.pop('empresa', None)
+            
+    #         if not self.empresa_id:  # Se ainda não tem empresa definida
+    #             if empresa:  # Se foi passada uma empresa
+    #                 self.empresa = empresa
+    #             elif user and not user.is_superuser and user.empresa:  # Se foi passado um user
+    #                 self.empresa = user.empresa
+                    
+    #         super().save(*args, **kwargs)
+    #         print("Projeto salvo com ID: {self.pk}")
+            
+
+    #         if is_new:  # Novo projeto
+    #             try:
+    #                 self.create_project_resources()
+    #                 # Gerar template
+    #                 pdf_path = self.gerar_template_pdf()
+                    
+    #                 # Enviar por email
+    #                 self.enviar_template_email(pdf_path)
+                    
+    #                 # Marcar template como enviado
+    #                 self.tem_template = True
+    #                 self.save(update_fields=['tem_template'])
+                    
+    #             except Exception as e:
+    #                 print(f"Erro ao gerar/enviar template: {str(e)}")
+
+
+    #     # num_placas96 = math.ceil(self.quantidade_amostras / 92)
+
+    #     # for i in range(num_placas96):
+    #     #     Placa96.objects.create(
+    #     #         projeto=self,
+    #     #         codigo_placa=i+1
+    #     #     )
+
+    #     # for j in range(self.quantidade_amostras):
+    #     #     codigo_amostra = f"{self.empresa.codigo} - {self.codigo_projeto} - {j+1:03d}"
+    #     #     Amostra.objects.create(
+    #     #         projeto=self,
+    #     #         codigo_amostra=codigo_amostra
+    #     #     )
+
     def save(self, *args, **kwargs):
-        is_new = self.pk is None  # Verifica se é uma criação nova
-        user = kwargs.pop('user', None)
-        empresa = kwargs.pop('empresa', None)
-        
-        if not self.empresa_id:  # Se ainda não tem empresa definida
-            if empresa:  # Se foi passada uma empresa
-                self.empresa = empresa
-            elif user and not user.is_superuser and user.empresa:  # Se foi passado um user
-                self.empresa = user.empresa
+        try:
+            print("Iniciando save do projeto")
+            with transaction.atomic():
+                is_new = self.pk is None  # Verifica se é uma criação nova
+                user = kwargs.pop('user', None)
+                empresa = kwargs.pop('empresa', None)
                 
-        super().save(*args, **kwargs)
-        
-        if is_new:
-            self.create_project_resources()
+                # Define a empresa se ainda não estiver definida
+                if not self.empresa_id:
+                    if empresa:
+                        self.empresa = empresa
+                    elif user and not user.is_superuser and user.empresa:
+                        self.empresa = user.empresa
+                
+                # Primeiro salva o projeto
+                super().save(*args, **kwargs)
+                print(f"Projeto salvo com ID: {self.pk}")
 
+                if is_new:  # Se for um novo projeto
+                    print("Criando recursos do projeto...")
+                    try:
+                        # Cria os recursos (placas, amostras, etc)
+                        self.create_project_resources()
+                        print("Recursos criados com sucesso")
 
-        # num_placas96 = math.ceil(self.quantidade_amostras / 92)
+                        # Gera o template PDF
+                        print("Gerando template PDF...")
+                        try:
+                            pdf_path = self.gerar_template_pdf()
+                            print(f"PDF gerado em: {pdf_path}")
 
-        # for i in range(num_placas96):
-        #     Placa96.objects.create(
-        #         projeto=self,
-        #         codigo_placa=i+1
-        #     )
+                            # Tenta enviar o email
+                            try:
+                                print("Enviando email...")
+                                self.enviar_template_email(pdf_path)
+                                print("Email enviado com sucesso")
 
-        # for j in range(self.quantidade_amostras):
-        #     codigo_amostra = f"{self.empresa.codigo} - {self.codigo_projeto} - {j+1:03d}"
-        #     Amostra.objects.create(
-        #         projeto=self,
-        #         codigo_amostra=codigo_amostra
-        #     )
+                                # Marca o template como enviado
+                                self.tem_template = True
+                                print("Atualizando status do template...")
+                                Projeto.objects.filter(pk=self.pk).update(tem_template=True)
+                                print("Status do template atualizado")
+
+                            except Exception as email_error:
+                                print(f"Erro ao enviar email: {str(email_error)}")
+                                # Continua mesmo se o email falhar
+                                
+                        except Exception as pdf_error:
+                            print(f"Erro ao gerar PDF: {str(pdf_error)}")
+                            # Continua mesmo se o PDF falhar
+
+                    except Exception as resource_error:
+                        print(f"Erro ao criar recursos: {str(resource_error)}")
+                        raise  # Levanta o erro para reverter a transação
+
+        except Exception as e:
+            print(f"Erro durante o save do projeto: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            raise
+
+        print("Projeto salvo com sucesso")
+        return self
+
 
 # FIM PROJETO
 
@@ -605,6 +756,13 @@ class Amostra(EmpresaMixin, models.Model):
         max_length=50,
         help_text='Código único da amostra no projeto'
     )
+    barcode_cliente= models.CharField(
+        max_length=50,
+        help_text='Código único da amostra no projeto controle do cliente',
+        null=True,
+        blank=True
+    )
+    
     data_cadastro = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -757,7 +915,7 @@ class Placa384(EmpresaMixin, models.Model):
 class Placa1536(EmpresaMixin, models.Model):
     projeto = models.ForeignKey('Projeto', on_delete=models.CASCADE)
     codigo_placa = models.CharField(
-        max_length=20,
+        max_length=30,
         help_text='Código identificador da placa de 1536 poços'
     )
     data_criacao = models.DateTimeField(auto_now_add=True)
@@ -1034,27 +1192,97 @@ class PlacaMap384to384(EmpresaMixin, models.Model):
 
 # RESULTADO
 
-class Resultado(EmpresaMixin, models.Model):
-    amostra = models.ForeignKey(Amostra, on_delete=models.CASCADE)
-    poco_96 = models.ForeignKey(Poco96, on_delete=models.CASCADE, null=True, blank=True)
-    poco_384 = models.ForeignKey(Poco384, on_delete=models.CASCADE, null=True, blank=True)
-    poco_1536 = models.ForeignKey(Poco1536, on_delete=models.CASCADE, null=True, blank=True)
-    valor = models.FloatField(help_text='Valor do resultado')
-    data_resultado = models.DateTimeField(auto_now_add=True)
-    observacoes = models.TextField(blank=True, null=True)
-
+class ResultadoUpload(models.Model):
+    """
+    Modelo para gerenciar o upload de arquivos de resultado
+    """
+    empresa = models.ForeignKey('Empresa', on_delete=models.CASCADE)
+    projeto = models.ForeignKey('Projeto', on_delete=models.CASCADE)
+    placa_1536 = models.ForeignKey('Placa1536', on_delete=models.CASCADE)
+    arquivo = models.FileField(
+        upload_to='resultados/',
+        validators=[FileExtensionValidator(allowed_extensions=['csv'])]
+    )
+    data_upload = models.DateTimeField(auto_now_add=True)
+    processado = models.BooleanField(default=False)
+    
+    # Metadados do experimento
+    marcador_fh = models.CharField(
+        max_length=50, 
+        null=True, 
+        blank=True,
+        help_text="Identificador do marcador FH usado no experimento"
+    )
+    marcador_aj = models.CharField(
+        max_length=50, 
+        null=True, 
+        blank=True,
+        help_text="Identificador do marcador AJ usado no experimento"
+    )
+    
     class Meta:
-        verbose_name = 'Resultado'
-        verbose_name_plural = 'Resultados'
+        verbose_name = 'Upload de Resultado'
+        verbose_name_plural = 'Uploads de Resultados'
+        ordering = ['-data_upload']
 
     def __str__(self):
-        poco = self.poco_96 or self.poco_384 or self.poco_1536
-        return f"{self.amostra} - {poco} = {self.valor}"
+        return f"Resultado {self.placa_1536.codigo_placa} - {self.data_upload}"
 
     def clean(self):
-        # Garantir que apenas um tipo de poço está associado
-        pocos = [self.poco_96, self.poco_384, self.poco_1536]
-        if len([p for p in pocos if p is not None]) != 1:
-            raise ValidationError(_('Associe exatamente um tipo de poço ao resultado.'))
+        # Garantir que pelo menos um marcador está definido
+        if not self.marcador_fh and not self.marcador_aj:
+            raise ValidationError("Pelo menos um marcador (FH ou AJ) deve ser especificado")
+        
+        # Validar se a placa pertence ao projeto
+        if self.placa_1536.projeto != self.projeto:
+            raise ValidationError("A placa 1536 selecionada não pertence ao projeto informado")
 
+class ResultadoAmostra(models.Model):
+    """
+    Modelo para armazenar os resultados por amostra
+    """
+    empresa = models.ForeignKey('Empresa', on_delete=models.CASCADE)
+    upload = models.ForeignKey(ResultadoUpload, on_delete=models.CASCADE)
+    amostra = models.ForeignKey('Amostra', on_delete=models.CASCADE)
+    data_processamento = models.DateTimeField(auto_now_add=True)
+    
+    # Campos para resultado FH
+    resultado_fh = models.CharField(max_length=20, null=True, blank=True)
+    coordenada_x_fh = models.FloatField(null=True, blank=True)
+    coordenada_y_fh = models.FloatField(null=True, blank=True)
+    
+    # Campos para resultado AJ
+    resultado_aj = models.CharField(max_length=20, null=True, blank=True)
+    coordenada_x_aj = models.FloatField(null=True, blank=True)
+    coordenada_y_aj = models.FloatField(null=True, blank=True)
+    
+    # Campo para armazenar dados brutos adicionais
+    dados_adicionais = models.JSONField(null=True, blank=True)
+    
+    class Meta:
+        verbose_name = 'Resultado por Amostra'
+        verbose_name_plural = 'Resultados por Amostra'
+        unique_together = [
+            ('upload', 'amostra'),  # Uma amostra só pode ter um resultado por upload
+        ]
+        indexes = [
+            models.Index(fields=['amostra', 'upload']),
+            models.Index(fields=['resultado_fh']),
+            models.Index(fields=['resultado_aj']),
+        ]
 
+    def __str__(self):
+        return f"Resultado {self.amostra.codigo_amostra}"
+
+    def clean(self):
+        # Garantir que pelo menos um resultado está presente
+        if not self.resultado_fh and not self.resultado_aj:
+            raise ValidationError("Pelo menos um resultado (FH ou AJ) deve estar presente")
+        
+        # Validar coordenadas FH
+        if self.resultado_fh and (self.coordenada_x_fh is None or self.coordenada_y_fh is None):
+            raise ValidationError("Coordenadas X e Y são obrigatórias para resultado FH")
+            
+        # Validar coordenadas AJ
+        if self.resultado_aj and (self.coordenada_x_aj is None or self.coordenada_y_aj is None):
+            raise ValidationError("Coordenadas X e Y são obrigatórias para resultado AJ")

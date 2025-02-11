@@ -2,7 +2,14 @@
 from django.db import models, transaction  # Adicione transaction aqui
 from django import forms
 from django.core.exceptions import ValidationError
-from .models import Empresa, Projeto, Placa96, Placa384, PlacaMap384to384, Placa1536
+from .models import Empresa, Projeto, Placa96, Placa384, PlacaMap384to384, Placa1536, ResultadoUpload, ResultadoAmostra
+from django.contrib import admin
+from django.urls import path
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.db.models import Count
+from django.utils.html import format_html
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -190,8 +197,6 @@ class TransferPlacasForm(forms.Form):
         }
 
 
-# forms.py
-
 class Transfer384to384Form(forms.Form):
     empresa = forms.ModelChoiceField(
         queryset=Empresa.objects.all(),
@@ -317,7 +322,6 @@ class Transfer384to384Form(forms.Form):
 
         return cleaned_data
 
-# forms.py
 
 class Transfer384to1536Form(forms.Form):
     empresa = forms.ModelChoiceField(
@@ -460,3 +464,60 @@ class Transfer384to1536Form(forms.Form):
 
         cleaned_data['placas'] = placas
         return cleaned_data
+
+
+class ResultadoUploadForm(forms.ModelForm):
+    class Meta:
+        model = ResultadoUpload
+        fields = ['projeto', 'placa_1536', 'arquivo', 'marcador_fh', 'marcador_aj']
+        widgets = {
+            'projeto': forms.Select(attrs={'class': 'select2'}),
+            'placa_1536': forms.Select(attrs={'class': 'select2'}),
+        }
+
+    def __init__(self, user, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not user.is_superuser:
+            # Filtrar por empresa do usuário
+            empresa = user.empresa
+            self.fields['projeto'].queryset = Projeto.objects.filter(empresa=empresa)
+            self.fields['placa_1536'].queryset = Placa1536.objects.filter(empresa=empresa)
+        
+        # Adicionar classe select2 para melhor UX
+        self.fields['projeto'].widget.attrs['class'] = 'select2'
+        self.fields['placa_1536'].widget.attrs['class'] = 'select2'
+
+        # Atualizar placas quando projeto for selecionado via JavaScript
+        self.fields['placa_1536'].widget.attrs['data-depends-on'] = 'projeto'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        projeto = cleaned_data.get('projeto')
+        placa_1536 = cleaned_data.get('placa_1536')
+        
+        if projeto and placa_1536:
+            # Verificar se a placa pertence ao projeto
+            if placa_1536.projeto != projeto:
+                raise forms.ValidationError(
+                    {'placa_1536': 'A placa selecionada não pertence ao projeto informado.'}
+                )
+            
+            # Verificar se já existe um upload não processado para esta placa
+            if ResultadoUpload.objects.filter(
+                placa_1536=placa_1536,
+                processado=False
+            ).exists():
+                raise forms.ValidationError(
+                    'Já existe um upload pendente para esta placa. ' + 
+                    'Processe o upload anterior antes de enviar um novo.'
+                )
+        
+        # Garantir que pelo menos um marcador está definido
+        if not (cleaned_data.get('marcador_fh') or cleaned_data.get('marcador_aj')):
+            raise forms.ValidationError(
+                'Pelo menos um marcador (FH ou AJ) deve ser especificado.'
+            )
+        
+        return cleaned_data
+
+

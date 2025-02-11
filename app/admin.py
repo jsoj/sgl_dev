@@ -1,5 +1,5 @@
 from django.db import transaction  # Adicionando esta importação
-from .forms import TransferPlacasForm, Transfer384to384Form, Transfer384to1536Form# Adicione esta importação no início do arquivo
+from .forms import TransferPlacasForm, Transfer384to384Form, Transfer384to1536Form, ResultadoAmostra, ResultadoUploadForm# Adicione esta importação no início do arquivo
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth import get_user_model
@@ -7,7 +7,7 @@ from django.db.models import Q
 from app.models import ( Tecnologia, Cultivo, Marcador, Projeto, Status, 
                         Protocolo, Etapa, User,  Amostra, Placa96, 
                         Placa384, Placa1536, Empresa,  Poco96, Poco384, Poco1536,    
-                        PlacaMap384, PlacaMap1536, Resultado, PlacaMap384to384)
+                        PlacaMap384, PlacaMap1536, ResultadoAmostra, ResultadoUpload, PlacaMap384to384)
 
 from django.urls import path
 from django.shortcuts import render, redirect
@@ -18,14 +18,17 @@ from django.http import JsonResponse
 from django.contrib.admin import AdminSite
 from django.contrib.auth.models import Group
 from django.contrib.auth.admin import GroupAdmin
-from import_export import resources
 from import_export.admin import ImportExportModelAdmin
+from django.utils.html import format_html  # Adicionando a importação necessária
+from .servico import ResultadoProcessor
 from import_export import resources, fields
+from import_export.widgets import ForeignKeyWidget
+
 
 import logging
 logger = logging.getLogger(__name__)
 
-
+#-----------------------------------------------
 # FILTROS
 
 class EmpresaFilter(admin.SimpleListFilter):
@@ -186,38 +189,7 @@ class PlacaDestinoFilter(admin.SimpleListFilter):
             return queryset.filter(placa_destino_id=self.value())
         return queryset
 
-# Resources - Export e Import 
-
-class Poco1536Resource(resources.ModelResource):
-    empresa_codigo = fields.Field(
-        column_name='Código da Empresa',
-        attribute='amostra__projeto__empresa__codigo'
-    )
-    empresa_nome = fields.Field(
-        column_name='Nome da Empresa',
-        attribute='amostra__projeto__empresa__nome'
-    )
-    projeto_codigo = fields.Field(
-        column_name='Codigo do Projeto',
-        attribute='amostra__projeto__codigo_projeto'
-    )
-    projeto_nome = fields.Field(
-        column_name='Nome do Projeto',
-        attribute='amostra__projeto__nome_projeto_cliente'
-    )
-    placa_codigo = fields.Field(
-        column_name='Código da Placa de 1536',
-        attribute='placa__codigo_placa'
-    )
-    amostra_codigo = fields.Field(
-        column_name='Código da Amostra',
-        attribute='amostra__codigo_amostra'
-    )
-
-    class Meta:
-        model = Poco1536
-        fields = ('id', 'empresa_codigo','empresa_nome','projeto_codigo', 'projeto_nome', 'placa_codigo', 'amostra_codigo','posicao')
-
+#-----------------------------------------------
 # CUSTOMIZACAO DO ADMIN SITE
 
 class CustomAdminSite(AdminSite):
@@ -260,7 +232,8 @@ class CustomAdminSite(AdminSite):
             },
             'Resultados': {
                 'models': {
-                    'Resultados': 'app.resultado',
+                    'Upload de Resultados': 'app.resultadoupload',
+                    'Resultados por Amostra': 'app.resultadoamostra',
                 },
             },
             'Cadastros': {
@@ -304,12 +277,8 @@ class CustomAdminSite(AdminSite):
 
         return ordered_apps
 
-# Criar instância do site customizado
 admin_site = CustomAdminSite(name='admin')
 admin_site.register(Group, GroupAdmin)
-# admin_site.register(Theme)
-
-# CUSTOMIZACAO DO USER 
 User = get_user_model()
 
 class CustomUserAdmin(UserAdmin):
@@ -343,12 +312,6 @@ class CustomUserAdmin(UserAdmin):
             kwargs["initial"] = request.user.empresa
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
-# Manter apenas este registro do User
-admin_site.register(User, CustomUserAdmin)
-
-# CUSTOMIZACAO DOS DEMAIS MODELOS
-# @admin_site.register(Empresa)  # Agora admin_site está definido
-
 class EmpresaAdmin(admin.ModelAdmin):
     list_display = ('codigo', 'nome', 'cnpj', 'is_active', 'data_cadastro')
     list_filter = ('is_active',)
@@ -364,8 +327,6 @@ class EmpresaAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         # Apenas superuser pode deletar empresas
         return request.user.is_superuser
-
-admin_site.register(Empresa, EmpresaAdmin)
 
 class EmpresaAdminMixin:
     def get_queryset(self, request):
@@ -388,11 +349,10 @@ class EmpresaAdminMixin:
                 list_filter.append('empresa')
         return list_filter
 
-# @admin_site.register(Projeto)
 class ProjetoAdmin(EmpresaAdminMixin, admin.ModelAdmin):
     list_display = ('empresa','empresa__nome','codigo_projeto', 'quantidade_amostras', 'status', 'cultivo', 'created_at')
     list_display_links = ["codigo_projeto"]
-    list_filter = ('empresa','codigo_projeto', 'status', 'cultivo')  # Empresa primeiro para facilitar filtragem
+    list_filter = (EmpresaFilter,ProjetoFilter,'empresa','codigo_projeto', 'status', 'cultivo')  # Empresa primeiro para facilitar filtragem
     search_fields = ('codigo_projeto', 'nome_projeto_cliente', 'empresa__nome')
     
     def get_queryset(self, request):
@@ -409,7 +369,9 @@ class ProjetoAdmin(EmpresaAdminMixin, admin.ModelAdmin):
                 kwargs["queryset"] = Empresa.objects.filter(id=request.user.empresa.id)
                 kwargs["initial"] = request.user.empresa
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
-admin_site.register(Projeto, ProjetoAdmin)
+
+#-----------------------------------------------
+# POCO E PLACA INLINE 
 
 class Poco96Inline(admin.TabularInline):
     model = Poco96
@@ -420,7 +382,6 @@ class Poco384Inline(admin.TabularInline):
     model = Poco384
     extra = 1
     raw_id_fields = ['amostra']
-
 
 class Poco1536Inline(admin.TabularInline):
     model = Poco1536
@@ -437,21 +398,104 @@ class PlacaMap1536Inline(admin.TabularInline):
     extra = 1
     autocomplete_fields = ['placa_origem']
 
-# @admin_site.register(Amostra)
-class AmostraAdmin(EmpresaAdminMixin, admin.ModelAdmin):
-    list_display = ('empresa', 'empresa__nome','projeto','codigo_amostra',  'data_cadastro')
-    list_filter = ('empresa','projeto__codigo_projeto', 'data_cadastro')
-    search_fields = ('codigo_amostra', 'projeto__codigo_projeto')
+class ResultadoAmostraInline(admin.TabularInline):
+    model = ResultadoAmostra
+    fields = ('amostra', 'resultado_fh', 'resultado_aj', 'data_processamento')
+    readonly_fields = ('amostra', 'resultado_fh', 'resultado_aj', 'data_processamento')
+    can_delete = False
+    max_num = 0
+    extra = 0
+
+    def has_add_permission(self, request, obj=None):
+        return False
+#-----------------------------------------------
+# AMOSTRA
+
+class AmostraResource(resources.ModelResource):
+    empresa_codigo = fields.Field(
+        column_name='Código da Empresa',
+        attribute='projeto__empresa__codigo'
+    )
+    empresa_nome = fields.Field(
+        column_name='Nome da Empresa',
+        attribute='projeto__empresa__nome'
+    )
+    projeto_codigo = fields.Field(
+        column_name='Código do Projeto',
+        attribute='projeto__codigo_projeto'
+    )
+    projeto_nome = fields.Field(
+        column_name='Nome do Projeto',
+        attribute='projeto__nome_projeto_cliente'
+    )
+    codigo_amostra = fields.Field(  # Adicionado este campo
+        column_name='Código da Amostra',
+        attribute='codigo_amostra'
+    )
+    barcode_cliente = fields.Field(  # Renomeado para manter consistência
+        column_name='Barcode do Cliente',
+        attribute='barcode_cliente'
+    )
+
+    class Meta:
+        model = Amostra
+        fields = (
+            'id', 
+            'empresa_codigo', 
+            'empresa_nome', 
+            'projeto_codigo', 
+            'projeto_nome', 
+            'codigo_amostra',  # Adicionado este campo
+            'barcode_cliente', 
+            'data_cadastro'
+        )
+        export_order = fields
+        import_id_fields = ['codigo_amostra']  # Agora o campo existe no resource
+        skip_unchanged = True
+        report_skipped = False
+
+class AmostraAdmin(EmpresaAdminMixin, ImportExportModelAdmin):
+    resource_class = AmostraResource
+    list_display = ('get_codigo_amostra', 'get_barcode_cliente', 
+                   'empresa_codigo', 'empresa_nome', 'projeto_codigo', 
+                   'projeto_nome', 'data_cadastro')
+    list_filter = ('empresa', 'projeto__codigo_projeto', 'data_cadastro')
+    search_fields = ('codigo_amostra', 'projeto__codigo_projeto', 
+                    'barcode_cliente')
     autocomplete_fields = ['projeto']
     
+    def get_codigo_amostra(self, obj):
+        return obj.codigo_amostra
+    get_codigo_amostra.short_description = 'Código da Amostra'
+    
+    def get_barcode_cliente(self, obj):
+        return obj.barcode_cliente
+    get_barcode_cliente.short_description = 'Barcode do Cliente'
+    
+    def empresa_codigo(self, obj):
+        return obj.projeto.empresa.codigo
+    empresa_codigo.short_description = 'Código da Empresa'
+    
+    def empresa_nome(self, obj):
+        return obj.projeto.empresa.nome
+    empresa_nome.short_description = 'Nome da Empresa'
+    
+    def projeto_codigo(self, obj):
+        return obj.projeto.codigo_projeto
+    projeto_codigo.short_description = 'Código do Projeto'
+    
+    def projeto_nome(self, obj):
+        return obj.projeto.nome_projeto_cliente
+    projeto_nome.short_description = 'Nome do Projeto'
+    
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('projeto', 'empresa')
-admin_site.register(Amostra, AmostraAdmin)
+        return super().get_queryset(request).select_related(
+            'projeto', 'projeto__empresa'
+        )
 
 
+#-----------------------------------------------
 # Placas
-
-# @admin_site.register(Placa96)
 class Placa96Admin(EmpresaAdminMixin, admin.ModelAdmin):
     list_display = ('empresa', 'empresa__nome','projeto','codigo_placa', 'get_amostras_count',  'data_criacao', 'is_active')
     list_display_links=['codigo_placa']
@@ -461,11 +505,9 @@ class Placa96Admin(EmpresaAdminMixin, admin.ModelAdmin):
     autocomplete_fields = ['projeto']
 
     def get_queryset(self, request):
+
         return super().get_queryset(request).select_related('projeto', 'empresa')
-admin_site.register(Placa96, Placa96Admin)
 
-
-# @admin_site.register(Placa384)
 class Placa384Admin(admin.ModelAdmin):
    list_display = ('empresa', 'empresa__nome','projeto','codigo_placa', 'get_amostras_count', 'data_criacao', 'is_active')
    list_display_links=['codigo_placa']
@@ -821,10 +863,6 @@ class Placa384Admin(admin.ModelAdmin):
         extra_context['show_transfer_button'] = True
         return super().changelist_view(request, extra_context)
 
-admin_site.register(Placa384, Placa384Admin)
-   
-
-# @admin_site.register(Placa1536)
 class Placa1536Admin(EmpresaAdminMixin, admin.ModelAdmin):
     list_display = ('empresa', 'empresa__nome','projeto', 'codigo_placa', 'get_amostras_count','data_criacao',  'is_active')
     list_display_links=['codigo_placa']
@@ -842,11 +880,9 @@ class Placa1536Admin(EmpresaAdminMixin, admin.ModelAdmin):
         return super().changelist_view(request, extra_context)
     
 
-admin_site.register(Placa1536, Placa1536Admin)
-
+#-----------------------------------------------
 # Mapeamentos
 
-# @admin_site.register(PlacaMap384)
 class PlacaMap384Admin(EmpresaAdminMixin, admin.ModelAdmin):
     list_display = ('empresa', 'empresa__nome', 'placa_origem', 'placa_destino', 'quadrante')
     list_display_links=['placa_origem']
@@ -862,10 +898,7 @@ class PlacaMap384Admin(EmpresaAdminMixin, admin.ModelAdmin):
             'placa_origem', 'placa_destino', 'empresa',
             'placa_origem__projeto', 'placa_destino__projeto'
         )
-admin_site.register(PlacaMap384, PlacaMap384Admin)
 
-
-# @admin_site.register(PlacaMap1536)
 class PlacaMap1536Admin(EmpresaAdminMixin, admin.ModelAdmin):
     list_display = ('empresa', 'empresa__nome', 'placa_origem', 'placa_destino', 'quadrante')  
     list_display_links=['placa_origem']
@@ -881,10 +914,7 @@ class PlacaMap1536Admin(EmpresaAdminMixin, admin.ModelAdmin):
             'placa_origem', 'placa_destino', 'empresa',
             'placa_origem__projeto', 'placa_destino__projeto'
         )
-admin_site.register(PlacaMap1536, PlacaMap1536Admin)
 
-
-# @admin_site.register(PlacaMap384to384)
 class PlacaMap384to384Admin(EmpresaAdminMixin, admin.ModelAdmin):
     list_display = ('empresa', 'empresa__nome', 'placa_origem', 'placa_destino', 'data_transferencia')
     list_display_links=['placa_origem']
@@ -900,43 +930,11 @@ class PlacaMap384to384Admin(EmpresaAdminMixin, admin.ModelAdmin):
             'placa_origem', 'placa_destino', 'empresa',
             'placa_origem__projeto', 'placa_destino__projeto'
         )
-admin_site.register(PlacaMap384to384, PlacaMap384to384Admin)
 
-
-# Resultados
-
-# @admin_site.register(Resultado)
-class ResultadoAdmin(EmpresaAdminMixin, admin.ModelAdmin):
-    list_display = ('empresa', 'empresa__nome','amostra', 'get_poco_display', 'valor', 'data_resultado')
-    list_filter = ('empresa','amostra__projeto',  'data_resultado')
-    search_fields = (
-        'amostra__codigo_amostra',
-        'poco_96__placa__codigo_placa',
-        'poco_384__placa__codigo_placa',
-        'poco_1536__placa__codigo_placa'
-    )
-    autocomplete_fields = ['amostra', 'poco_96', 'poco_384', 'poco_1536']
     
-    def get_poco_display(self, obj):
-        if obj.poco_96:
-            return f"P96: {obj.poco_96}"
-        elif obj.poco_384:
-            return f"P384: {obj.poco_384}"
-        elif obj.poco_1536:
-            return f"P1536: {obj.poco_1536}"
-        return "-"
-    get_poco_display.short_description = "Poço"
-
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related(
-            'amostra', 'poco_96', 'poco_384', 'poco_1536', 
-            'empresa', 'amostra__projeto'
-        )
-admin_site.register(Resultado, ResultadoAdmin)
-
+#-----------------------------------------------
 # Poços
 
-# @admin_site.register(Poco96)
 class Poco96Admin(EmpresaAdminMixin, admin.ModelAdmin):
     list_display = ('empresa', 'empresa__nome', 'placa', 'posicao', 'amostra',)
     list_display_links=['posicao']
@@ -949,10 +947,6 @@ class Poco96Admin(EmpresaAdminMixin, admin.ModelAdmin):
             'placa', 'placa__projeto', 'empresa', 'amostra'
         )
     
-admin_site.register(Poco96, Poco96Admin)
-
-
-# @admin_site.register(Poco384)
 class Poco384Admin(EmpresaAdminMixin, admin.ModelAdmin):
     list_display = ('empresa', 'empresa__nome','placa', 'posicao', 'amostra')
     list_display_links=['posicao']
@@ -961,63 +955,466 @@ class Poco384Admin(EmpresaAdminMixin, admin.ModelAdmin):
     raw_id_fields = ['placa', 'amostra']  # Mudando de autocomplete para raw_id
     placa_model = Placa384  # Necessário para o PlacaFilter
 
-admin_site.register(Poco384, Poco384Admin)
+class Poco1536Resource(resources.ModelResource):
+    empresa_codigo = fields.Field(          column_name='Código da Empresa',        attribute='amostra__projeto__empresa__codigo'    )
+    empresa_nome = fields.Field(            column_name='Nome da Empresa',          attribute='amostra__projeto__empresa__nome'    )
+    projeto_codigo = fields.Field(          column_name='Codigo do Projeto',        attribute='amostra__projeto__codigo_projeto'    )
+    projeto_nome = fields.Field(            column_name='Nome do Projeto',          attribute='amostra__projeto__nome_projeto_cliente'    )
+    placa_codigo = fields.Field(            column_name='Código da Placa de 1536',  attribute='placa__codigo_placa'    )
+    amostra_codigo = fields.Field(          column_name='Código da Amostra',        attribute='amostra__codigo_amostra'    )
+    amostra_barcode = fields.Field (        column_name='Código Barcode do Cliente',attribute='amostra__barcode_cliente')
 
+    class Meta:
+        model = Poco1536
+        fields = ('id', 'empresa_codigo','empresa_nome','projeto_codigo', 'projeto_nome', 'placa_codigo', 'amostra_codigo','posicao')
 
-# @admin_site.register(Poco1536)
 class Poco1536Admin(EmpresaAdminMixin, ImportExportModelAdmin):
     resource_class = Poco1536Resource
-    list_display = ('empresa', 'empresa__nome','placa', 'posicao', 'amostra')
+    list_display = ('empresa', 'empresa__nome','amostra__projeto__codigo_projeto','amostra__projeto__nome_projeto_cliente','placa', 'posicao', 'amostra','amostra__barcode_cliente')
     list_display_links=['posicao']
     list_filter = (EmpresaFilter, ProjetoFilterPoco, PlacaFilterPoco) 
     search_fields = ('placa__codigo_placa', 'posicao', 'amostra__codigo_amostra')
     autocomplete_fields = ['placa', 'amostra']
     placa_model = Placa1536
 
-admin_site.register(Poco1536, Poco1536Admin)
 
-
+#-----------------------------------------------
 # Cadastros
 
-# @admin_site.register(Tecnologia)
 class TecnologiaAdmin(EmpresaAdminMixin, admin.ModelAdmin):
     list_display = ('nome', 'caracteristica', 'vencimento_patente', 'data_cadastro')
     search_fields = ('nome',)
-admin_site.register(Tecnologia, TecnologiaAdmin)
 
-
-# @admin_site.register(Cultivo)
 class CultivoAdmin(EmpresaAdminMixin, admin.ModelAdmin):
     list_display = ('nome', 'nome_cientifico', 'data_cadastro')
     search_fields = ('nome',)
-admin_site.register(Cultivo, CultivoAdmin)
 
-
-# @admin_site.register(Marcador)
 class MarcadorAdmin(EmpresaAdminMixin, admin.ModelAdmin):
     list_display = ('nome', 'cultivo', 'is_customizado')
     search_fields = ('nome',)
-admin_site.register(Marcador, MarcadorAdmin)
 
-
-# @admin_site.register(Status)
 class StatusAdmin(EmpresaAdminMixin, admin.ModelAdmin):
     list_display = ('nome',)
     search_fields = ('nome',)
-admin_site.register(Status, StatusAdmin)
 
-
-# @admin_site.register(Protocolo)
 class ProtocoloAdmin(EmpresaAdminMixin, admin.ModelAdmin):
     list_display = ('nome',)
     search_fields = ('nome',)
-admin_site.register(Protocolo, ProtocoloAdmin)
 
-
-# @admin_site.register(Etapa)
 class EtapaAdmin(EmpresaAdminMixin, admin.ModelAdmin):
     list_display = ('nome',)
     search_fields = ('nome',)
+
+#-----------------------------------------------
+# Resultados 
+
+class ResultadoUploadForm(forms.ModelForm):
+    class Meta:
+        model = ResultadoUpload
+        fields = ['projeto', 'placa_1536', 'arquivo', 'marcador_fh', 'marcador_aj']
+        widgets = {
+            'projeto': forms.Select(attrs={'class': 'select2'}),
+            'placa_1536': forms.Select(attrs={'class': 'select2'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        
+        if self.user and not self.user.is_superuser:
+            # Filtrar por empresa do usuário
+            empresa = self.user.empresa
+            self.fields['projeto'].queryset = Projeto.objects.filter(empresa=empresa)
+            self.fields['placa_1536'].queryset = Placa1536.objects.filter(empresa=empresa)
+        
+        # Adicionar classe select2 para melhor UX
+        self.fields['projeto'].widget.attrs['class'] = 'select2'
+        self.fields['placa_1536'].widget.attrs['class'] = 'select2'
+
+        # Atualizar placas quando projeto for selecionado via JavaScript
+        self.fields['placa_1536'].widget.attrs['data-depends-on'] = 'projeto'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        projeto = cleaned_data.get('projeto')
+        placa_1536 = cleaned_data.get('placa_1536')
+        
+        if projeto and placa_1536:
+            # Verificar se a placa pertence ao projeto
+            if placa_1536.projeto != projeto:
+                raise forms.ValidationError(
+                    {'placa_1536': 'A placa selecionada não pertence ao projeto informado.'}
+                )
+            
+            # Verificar se já existe um upload não processado para esta placa
+            if ResultadoUpload.objects.filter(
+                placa_1536=placa_1536,
+                processado=False
+            ).exists():
+                raise forms.ValidationError(
+                    'Já existe um upload pendente para esta placa. ' + 
+                    'Processe o upload anterior antes de enviar um novo.'
+                )
+        
+        # Garantir que pelo menos um marcador está definido
+        if not (cleaned_data.get('marcador_fh') or cleaned_data.get('marcador_aj')):
+            raise forms.ValidationError(
+                'Pelo menos um marcador (FH ou AJ) deve ser especificado.'
+            )
+        
+        return cleaned_data
+
+class ResultadoUploadAdmin(EmpresaAdminMixin, admin.ModelAdmin):
+    form = ResultadoUploadForm
+    inlines = [ResultadoAmostraInline]
+    
+    list_display = (
+        'empresa',
+        'empresa__nome',
+        'get_codigo_placa',
+        'get_projeto_display',
+        'data_upload',
+        'get_status_processamento',
+        'get_contagem_resultados',
+        'get_acoes'
+    )
+    
+    list_filter = [
+        EmpresaFilter,
+        ProjetoFilter,
+        'processado',
+        'data_upload',
+    ]
+    
+    search_fields = [
+        'placa_1536__codigo_placa',
+        'projeto__codigo_projeto',
+        'projeto__nome_projeto_cliente'
+    ]
+    
+    readonly_fields = ['data_upload', 'processado']
+
+    def get_form(self, request, obj=None, **kwargs):
+        """
+        Sobrescreve o método para passar o usuário atual para o formulário
+        """
+        Form = super().get_form(request, obj, **kwargs)
+        
+        class FormWithRequest(Form):
+            def __new__(cls, *args, **kwargs):
+                kwargs['user'] = request.user
+                return Form(*args, **kwargs)
+                
+        return FormWithRequest
+
+    def get_codigo_placa(self, obj):
+        return obj.placa_1536.codigo_placa if obj.placa_1536 else '-'
+    get_codigo_placa.short_description = 'Placa'
+    get_codigo_placa.admin_order_field = 'placa_1536__codigo_placa'
+    
+    def get_projeto_display(self, obj):
+        if obj.projeto:
+            return f"{obj.projeto.codigo_projeto} - {obj.projeto.nome_projeto_cliente or 'Sem nome'}"
+        return '-'
+    get_projeto_display.short_description = 'Projeto'
+    get_projeto_display.admin_order_field = 'projeto__codigo_projeto'
+    
+    def get_status_processamento(self, obj):
+        if obj.processado:
+            return format_html(
+                '<span style="color: green;">✓ Processado</span>'
+            )
+        return format_html(
+            '<span style="color: orange;">⌛ Pendente</span>'
+        )
+    get_status_processamento.short_description = 'Status'
+    get_status_processamento.admin_order_field = 'processado'
+
+    def get_contagem_resultados(self, obj):
+        count = obj.resultadoamostra_set.count()
+        return f"{count} resultados"
+    get_contagem_resultados.short_description = 'Resultados'
+    
+    def get_acoes(self, obj):
+        if not obj.processado:
+            return format_html(
+                '<a class="button" href="{}">Processar Resultados</a>',
+                f'processar/{obj.id}/'
+            )
+        return "Processamento completo"
+    get_acoes.short_description = 'Ações'
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                'processar/<int:upload_id>/',
+                self.admin_site.admin_view(self.process_upload),
+                name='processo-resultado-upload'
+            ),
+        ]
+        return custom_urls + urls
+
+    def process_upload(self, request, upload_id):
+        try:
+            processor = ResultadoProcessor(upload_id)
+            stats = processor.process_file()
+            
+            messages.success(
+                request,
+                f'Arquivo processado com sucesso! '
+                f'Processados: {stats["processed"]}, '
+                f'Erros: {stats["errors"]}'
+            )
+        except Exception as e:
+            messages.error(
+                request,
+                f'Erro ao processar arquivo: {str(e)}'
+            )
+        
+        return redirect('admin:app_resultadoupload_changelist')
+
+    def save_model(self, request, obj, form, change):
+        if not change:  # Apenas para novos registros
+            obj.empresa = request.user.empresa if not request.user.is_superuser else obj.projeto.empresa
+        super().save_model(request, obj, form, change)
+
+class ResultadoAmostraResource(resources.ModelResource):
+    """
+    Resource para importação e exportação de ResultadoAmostra
+    """
+    # Campos da Empresa
+    empresa_codigo = fields.Field(
+        column_name='Código da Empresa',
+        attribute='empresa',
+        widget=ForeignKeyWidget(Empresa, 'codigo')
+    )
+    empresa_nome = fields.Field(
+        column_name='Nome da Empresa',
+        attribute='empresa',
+        widget=ForeignKeyWidget(Empresa, 'nome')
+    )
+    
+    # Campos do Projeto
+    projeto_codigo = fields.Field(
+        column_name='Código do Projeto',
+        attribute='amostra__projeto__codigo_projeto'
+    )
+    projeto_nome = fields.Field(
+        column_name='Nome do Projeto',
+        attribute='amostra__projeto__nome_projeto_cliente'
+    )
+    
+    # Campos da Placa
+    placa_1536 = fields.Field(
+        column_name='Código da Placa 1536',
+        attribute='upload__placa_1536__codigo_placa'
+    )
+    
+    # Campos da Amostra
+    codigo_amostra = fields.Field(
+        column_name='Código da Amostra',
+        attribute='amostra__codigo_amostra'
+    )
+    barcode_cliente = fields.Field(
+        column_name='Barcode do Cliente',
+        attribute='amostra__barcode_cliente'
+    )
+    
+    # Campos dos Resultados
+    # upload_data = fields.Field(
+    #     column_name='Data do Upload',
+    #     attribute='upload__data_upload'
+    # )
+    # data_processamento = fields.Field(
+    #     column_name='Data do Processamento',
+    #     attribute='data_processamento'
+    # )
+    resultado_fh = fields.Field(
+        column_name='Resultado FH',
+        attribute='resultado_fh'
+    )
+    resultado_aj = fields.Field(
+        column_name='Resultado AJ',
+        attribute='resultado_aj'
+    )
+    # coordenada_x_fh = fields.Field(
+    #     column_name='Coordenada X FH',
+    #     attribute='coordenada_x_fh'
+    # )
+    # coordenada_y_fh = fields.Field(
+    #     column_name='Coordenada Y FH',
+    #     attribute='coordenada_y_fh'
+    # )
+    # coordenada_x_aj = fields.Field(
+    #     column_name='Coordenada X AJ',
+    #     attribute='coordenada_x_aj'
+    # )
+    # coordenada_y_aj = fields.Field(
+    #     column_name='Coordenada Y AJ',
+    #     attribute='coordenada_y_aj'
+    # )
+    poco_1536 = fields.Field(
+        column_name='Poço 1536')  # Declarando o campo    
+
+    class Meta:
+        model = ResultadoAmostra
+        fields = (
+            'id',
+            'empresa_codigo',
+            'empresa_nome',
+            'projeto_codigo',
+            'projeto_nome',
+            'placa_1536',
+            'poco_1536',
+            'codigo_amostra',
+            'barcode_cliente',
+            # 'upload_data',
+            # 'data_processamento',
+            'resultado_fh',
+            'resultado_aj',
+            'coordenada_x_fh',
+            'coordenada_y_fh',
+            'coordenada_x_aj',
+            'coordenada_y_aj'
+        )
+        export_order = fields
+        import_id_fields = ['id']
+        skip_unchanged = True
+        report_skipped = False
+
+    def dehydrate_poco_1536(self, resultado_amostra):
+        """
+        Busca a posição do poço 1536 correspondente à amostra.
+        """
+        try:
+            poco_1536 = resultado_amostra.amostra.poco1536_set.filter(
+                placa__resultadoUpload__projeto=resultado_amostra.upload.projeto
+            ).first()
+            return poco_1536.posicao if poco_1536 else '-'
+        except Exception as e:
+            print(f"Erro ao buscar posição do poço 1536: {e}")
+            return '-'
+
+class ResultadoAmostraAdmin(ImportExportModelAdmin):
+    """
+    Admin customizado para ResultadoAmostra com recursos de importação/exportação
+    """
+    resource_class = ResultadoAmostraResource
+    
+    # Campos mostrados na listagem
+    list_display = (
+        'empresa_nome',
+        'projeto_codigo',
+        'get_placa_1536',
+        'get_poco_1536',
+        'get_codigo_amostra',
+        'get_barcode_cliente',
+        'resultado_fh',
+        'resultado_aj',
+        'data_processamento'
+    )
+    
+    # Campos para filtro
+    list_filter = (
+        'empresa',
+        'upload__projeto',
+        'upload__placa_1536',
+        'data_processamento',
+        'resultado_fh',
+        'resultado_aj'
+    )
+    
+    # Campos para busca
+    search_fields = (
+        'amostra__codigo_amostra',
+        'amostra__barcode_cliente',
+        'upload__placa_1536__codigo_placa',
+        'resultado_fh',
+        'resultado_aj',
+     )
+    
+    # Define campos somente leitura
+    readonly_fields = (
+        'data_processamento',
+        'upload',
+        'empresa'
+    )
+
+    def get_queryset(self, request):
+        """
+        Otimiza as queries usando select_related para campos relacionados
+        """
+        return super().get_queryset(request).select_related(
+            'empresa',
+            'upload',
+            'upload__projeto',
+            'upload__placa_1536',
+            'amostra'
+        )
+
+    # Métodos para campos personalizados no list_display
+    def empresa_nome(self, obj):
+        return obj.empresa.nome
+    empresa_nome.short_description = 'Empresa'
+    empresa_nome.admin_order_field = 'empresa__nome'
+    
+    def projeto_codigo(self, obj):
+        return obj.upload.projeto.codigo_projeto
+    projeto_codigo.short_description = 'Projeto'
+    projeto_codigo.admin_order_field = 'upload__projeto__codigo_projeto'
+    
+    def get_placa_1536(self, obj):
+        return obj.upload.placa_1536.codigo_placa
+    get_placa_1536.short_description = 'Placa 1536'
+    get_placa_1536.admin_order_field = 'upload__placa_1536__codigo_placa'
+    
+    def get_poco_1536(self, obj):
+        poco = obj.amostra.poco1536_set.filter(
+            placa=obj.upload.placa_1536
+        ).first()
+        return poco.posicao if poco else '-'
+    get_poco_1536.short_description = 'Poço 1536'
+    
+    def get_codigo_amostra(self, obj):
+        return obj.amostra.codigo_amostra
+    get_codigo_amostra.short_description = 'Código Amostra'
+    get_codigo_amostra.admin_order_field = 'amostra__codigo_amostra'
+    
+    def get_barcode_cliente(self, obj):
+        return obj.amostra.barcode_cliente or '-'
+    get_barcode_cliente.short_description = 'Barcode Cliente'
+    get_barcode_cliente.admin_order_field = 'amostra__barcode_cliente'
+    
+    def has_add_permission(self, request):
+        """
+        Desabilita a adição manual de resultados
+        """
+        return False
+
+#-----------------------------------------------
+# Ordem correta de registros
+
+admin_site.register(User, CustomUserAdmin)
+admin_site.register(Empresa, EmpresaAdmin)
+admin_site.register(Amostra, AmostraAdmin)
+admin_site.register(Projeto, ProjetoAdmin)
+admin_site.register(Placa96, Placa96Admin)
+admin_site.register(Placa384, Placa384Admin)
+admin_site.register(Placa1536, Placa1536Admin)
+admin_site.register(Poco96, Poco96Admin)
+admin_site.register(Poco384, Poco384Admin)
+admin_site.register(Poco1536, Poco1536Admin)
+admin_site.register(PlacaMap384, PlacaMap384Admin)
+admin_site.register(PlacaMap1536, PlacaMap1536Admin)
+admin_site.register(PlacaMap384to384, PlacaMap384to384Admin)
+admin_site.register(Tecnologia, TecnologiaAdmin)
+admin_site.register(Cultivo, CultivoAdmin)
+admin_site.register(Marcador, MarcadorAdmin)
+admin_site.register(Status, StatusAdmin)
+admin_site.register(Protocolo, ProtocoloAdmin)
 admin_site.register(Etapa, EtapaAdmin)
+admin_site.register(ResultadoUpload, ResultadoUploadAdmin)
+admin_site.register(ResultadoAmostra, ResultadoAmostraAdmin)
 
 
