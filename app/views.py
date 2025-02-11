@@ -352,3 +352,43 @@ def logout_view(request):
     from django.contrib.auth import logout
     logout(request)
     return redirect('login')
+
+
+# views.py
+
+from django.http import JsonResponse
+from django.contrib.admin.views.decorators import staff_member_required
+from .models import Placa1536
+
+@staff_member_required
+def get_placas_1536(request, projeto_id):
+    """
+    API endpoint para buscar placas 1536 de um projeto específico
+    """
+    if not request.user.is_superuser and projeto_id:
+        # Verificar se o projeto pertence à empresa do usuário
+        placas = Placa1536.objects.filter(
+            projeto_id=projeto_id,
+            empresa=request.user.empresa,
+            is_active=True
+        ).values('id', 'codigo_placa')
+    else:
+        placas = Placa1536.objects.filter(
+            projeto_id=projeto_id,
+            is_active=True
+        ).values('id', 'codigo_placa')
+    
+    return JsonResponse(list(placas), safe=False)
+
+# urls.py
+
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path(
+        'admin/api/placas-1536/<int:projeto_id>/',
+        views.get_placas_1536,
+        name='api-placas-1536'
+    ),
+]

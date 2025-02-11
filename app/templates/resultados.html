@@ -1,0 +1,163 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block extrahead %}
+{{ block.super }}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<style>
+    .select2-container {
+        min-width: 300px;
+    }
+    .helptext {
+        color: #666;
+        font-size: 0.8em;
+        display: block;
+        margin-top: 4px;
+    }
+    .errorlist {
+        color: #ba2121;
+        margin-bottom: 10px;
+    }
+    .form-row {
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <fieldset class="module aligned">
+            <div class="form-row">
+                <div class="field-box">
+                    <label for="id_projeto">Projeto:</label>
+                    {{ form.projeto }}
+                    {% if form.projeto.errors %}
+                        <ul class="errorlist">
+                        {% for error in form.projeto.errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                        </ul>
+                    {% endif %}
+                    {% if form.projeto.help_text %}
+                        <p class="helptext">{{ form.projeto.help_text }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="field-box">
+                    <label for="id_placa_1536">Placa 1536:</label>
+                    {{ form.placa_1536 }}
+                    {% if form.placa_1536.errors %}
+                        <ul class="errorlist">
+                        {% for error in form.placa_1536.errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                        </ul>
+                    {% endif %}
+                    {% if form.placa_1536.help_text %}
+                        <p class="helptext">{{ form.placa_1536.help_text }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="field-box">
+                    <label for="id_arquivo">Arquivo CSV:</label>
+                    {{ form.arquivo }}
+                    {% if form.arquivo.errors %}
+                        <ul class="errorlist">
+                        {% for error in form.arquivo.errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                        </ul>
+                    {% endif %}
+                    {% if form.arquivo.help_text %}
+                        <p class="helptext">{{ form.arquivo.help_text }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="field-box">
+                    <label for="id_marcador_fh">Marcador FH:</label>
+                    {{ form.marcador_fh }}
+                    {% if form.marcador_fh.errors %}
+                        <ul class="errorlist">
+                        {% for error in form.marcador_fh.errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                        </ul>
+                    {% endif %}
+                    {% if form.marcador_fh.help_text %}
+                        <p class="helptext">{{ form.marcador_fh.help_text }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="field-box">
+                    <label for="id_marcador_aj">Marcador AJ:</label>
+                    {{ form.marcador_aj }}
+                    {% if form.marcador_aj.errors %}
+                        <ul class="errorlist">
+                        {% for error in form.marcador_aj.errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                        </ul>
+                    {% endif %}
+                    {% if form.marcador_aj.help_text %}
+                        <p class="helptext">{{ form.marcador_aj.help_text }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </fieldset>
+
+        <div class="submit-row">
+            <input type="submit" value="Salvar" class="default" name="_save">
+        </div>
+    </form>
+</div>
+
+{% block extrajs %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar Select2
+    $('.select2').select2();
+
+    // Atualizar lista de placas quando projeto é alterado
+    $('#id_projeto').on('change', function() {
+        var projetoId = $(this).val();
+        var placaSelect = $('#id_placa_1536');
+        
+        placaSelect.empty();
+        placaSelect.append(new Option('Erro ao carregar placas', ''));
+                }
+            });
+        }
+    });
+});
+</script>
+{% endblock %}
+{% endblock %}
+Carregando...', ''));
+        
+        if (projetoId) {
+            $.ajax({
+                url: '/admin/api/placas-1536/' + projetoId + '/',
+                type: 'GET',
+                success: function(data) {
+                    placaSelect.empty();
+                    placaSelect.append(new Option('', ''));
+                    
+                    data.forEach(function(placa) {
+                        placaSelect.append(new Option(placa.codigo_placa, placa.id));
+                    });
+                },
+                error: function() {
+                    placaSelect.empty();
+                    placaSelect.append(new Option('
+                    

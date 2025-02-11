@@ -83,4 +83,11 @@ urlpatterns = [
     # APIs para carregar dados dinâmicos
     path('api/projetos/<int:empresa_id>/', views.get_projetos, name='get_projetos'),
     path('api/placas-96/<int:projeto_id>/', views.get_placas_96, name='get_placas_96'),
+
+    path(
+        'admin/api/placas-1536/<int:projeto_id>/',
+        views.get_placas_1536,
+        name='api-placas-1536'
+    ),
 ]
+

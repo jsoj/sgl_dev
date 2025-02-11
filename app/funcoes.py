@@ -24,3 +24,4 @@ def validar_data_liberacao(value):
                 code='invalid_data_liberacao'
             )
     return validate
+

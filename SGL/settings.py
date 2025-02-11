@@ -199,3 +199,15 @@ LOGGING = {
 
 DATE_FORMAT=["%d/%m/%Y"]
 DATE_INPUT_FORMATS=["%d/%m/%Y"]
+
+EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
+EMAIL_FILE_PATH = os.path.join(BASE_DIR, 'sent_emails')  # diretório onde os emails serão salvos
+
+
+
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.google.com'  # Ajuste para seu servidor SMTP
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'contato@agromarkers.com.br'  # Email que enviará
+EMAIL_HOST_PASSWORD = 'Jsoj@3105'  # Senha do email
