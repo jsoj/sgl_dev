@@ -1,0 +1,31 @@
+{% extends "admin/import_export/import.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="submit-row">
+    <input type="button" class="button" value="{% trans 'Download Template' %}" 
+           onclick="window.location.href='{% url 'admin:app_amostra_import_template' %}'"/>
+</div>
+
+<form action="" method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <div class="form-row">
+        <label for="projeto_id">Projeto:</label>
+        <select name="projeto_id" id="projeto_id" required>
+            <option value="">---------</option>
+            {% for projeto in projetos %}
+                <option value="{{ projeto.id }}">{{ projeto.codigo_projeto }} - {{ projeto.nome_projeto_cliente }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="form-row">
+        {{ form.as_p }}
+    </div>
+
+    <div class="submit-row">
+        <input type="submit" class="default" value="{% trans 'Submit' %}"/>
+    </div>
+</form>
+{% endblock %}

@@ -27,7 +27,11 @@ SECRET_KEY = 'django-insecure-!+qk-%hvw_7ez$fa)+9wz#wvi_g1zf3wv$^0ed0*p69c@l3%b3
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'dev.agromarkers.com.br',
+    'localhost',
+    '127.0.0.1',
+]
 
 
 # Application definition
@@ -35,6 +39,7 @@ ALLOWED_HOSTS = []
 INSTALLED_APPS = [
     # 'admin_interface',
     # 'colorfield',
+    'app',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -42,7 +47,6 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'app',
     'import_export',
 
 ]
@@ -56,6 +60,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+CSRF_COOKIE_SECURE = False  # Temporariamente para testes
 
 ROOT_URLCONF = 'SGL.urls'
 
@@ -82,12 +88,19 @@ WSGI_APPLICATION = 'SGL.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'db_dev',
+        'USER': 'django_user',
+        'PASSWORD': 'Jsoj@3105',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
+
 
 
 # Password validation
@@ -125,12 +138,12 @@ USE_TZ = True
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-STATIC_URL = '/static/'  # Adicione as barras
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # 👈 Adicione esta linha
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static'),  # Mantenha esta linha
-]
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
 X_FRAME_OPTIONS = 'SAMEORIGIN'  # Necessário para o admin_interface
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -166,30 +179,36 @@ LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/login/'
 
 # Configuração de logging
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '{levelname} {asctime} {module} {message}',
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
             'style': '{',
         },
     },
     'handlers': {
         'file': {
-            'level': 'INFO',
+            'level': 'DEBUG',
             'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'debug.log',
+            'filename': 'debug.log',
             'formatter': 'verbose',
         },
         'console': {
-            'level': 'INFO',
+            'level': 'DEBUG',
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
     },
     'loggers': {
-        '': {
+        'app': {  # substitua 'app' pelo nome do seu app
+            'handlers': ['file', 'console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'django': {
             'handlers': ['file', 'console'],
             'level': 'INFO',
             'propagate': True,
@@ -200,14 +219,39 @@ LOGGING = {
 DATE_FORMAT=["%d/%m/%Y"]
 DATE_INPUT_FORMATS=["%d/%m/%Y"]
 
-EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
-EMAIL_FILE_PATH = os.path.join(BASE_DIR, 'sent_emails')  # diretório onde os emails serão salvos
+
+# Adicione estas configurações no settings.py
+
+# Configurações para upload de arquivos
+IMPORT_EXPORT_TMP_STORAGE_CLASS = 'import_export.tmp_storages.CacheStorage'
+IMPORT_EXPORT_CHUNK_SIZE = 1000  # Número de registros processados por vez
+
+# Configurações de arquivo
+FILE_UPLOAD_MAX_MEMORY_SIZE = 26214400  # 25MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 26214400  # 25MB
+IMPORT_EXPORT_USE_TRANSACTIONS = True
+
+# Diretório para arquivos temporários
+FILE_UPLOAD_TEMP_DIR = '/tmp'
+
+# Configurar cache para armazenamento temporário
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': '/var/tmp/django_cache',
+    }
+}
 
 
+# Configurações para import/export
+IMPORT_EXPORT_USE_TRANSACTIONS = True
+IMPORT_EXPORT_SKIP_ADMIN_LOG = True
+IMPORT_EXPORT_CHUNK_SIZE = 500
 
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.google.com'  # Ajuste para seu servidor SMTP
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'contato@agromarkers.com.br'  # Email que enviará
-EMAIL_HOST_PASSWORD = 'Jsoj@3105'  # Senha do email
+
+# Configuração para timeouts mais longos
+DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB
+
+# Settings para otimizar import/export
+IMPORT_EXPORT_CELERY_TASK_EXPIRES = 60  # 1 minuto

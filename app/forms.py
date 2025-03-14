@@ -140,7 +140,7 @@ class TransferPlacasForm(forms.Form):
                raise ValidationError('Todas as placas devem pertencer à mesma empresa.')
 
        # Validar se o código da placa 384 é único
-       if Placa384.objects.filter(codigo_placa=codigo_placa_384, empresa=empresa).exists():
+       if Placa384.objects.filter(codigo_placa=codigo_placa_384, empresa=empresa,projeto=projeto).exists():
            raise ValidationError('Já existe uma placa 384 com este código.')
 
        # Validar se as placas origem têm amostras
@@ -162,26 +162,26 @@ class TransferPlacasForm(forms.Form):
         return placa
 
    def save(self):
-    """Cria a placa 384 e realiza a transferência"""
-    empresa = self.cleaned_data['empresa']
-    projeto = self.cleaned_data['projeto']
-    codigo_placa_384 = self.cleaned_data['codigo_placa_384']
-    placas = self.cleaned_data['placas']
+        """Cria a placa 384 e realiza a transferência"""
+        empresa = self.cleaned_data['empresa']
+        projeto = self.cleaned_data['projeto']
+        codigo_placa_384 = self.cleaned_data['codigo_placa_384']
+        placas = self.cleaned_data['placas']
 
-    with transaction.atomic():
-        # Criar placa 384
-        placa_384 = Placa384.objects.create(
-            empresa=empresa,
-            projeto=projeto,
-            codigo_placa=codigo_placa_384
-        )
+        with transaction.atomic():
+            # Criar placa 384
+            placa_384 = Placa384.objects.create(
+                empresa=empresa,
+                projeto=projeto,
+                codigo_placa=codigo_placa_384
+            )
 
-        # Realizar transferência
-        placa_384.transfer_96_to_384(placas)
+            # Realizar transferência
+            placa_384.transfer_96_to_384(placas)
 
-        return placa_384
+            return placa_384
 
-    class Meta:
+   class Meta:
         fields = ['empresa', 'projeto', 'placa_1', 'placa_2', 'placa_3', 'placa_4', 'codigo_placa_384']
         labels = {
             'placa_1': 'Placa 96 (Quadrante 1 - Linhas pares, Colunas pares)',

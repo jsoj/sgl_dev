@@ -754,7 +754,8 @@ class Amostra(EmpresaMixin, models.Model):
     projeto = models.ForeignKey('Projeto', on_delete=models.CASCADE)
     codigo_amostra = models.CharField(
         max_length=50,
-        help_text='Código único da amostra no projeto'
+        help_text='Código único da amostra no projeto',
+        db_index=True 
     )
     barcode_cliente= models.CharField(
         max_length=50,
@@ -769,6 +770,8 @@ class Amostra(EmpresaMixin, models.Model):
         unique_together = ['empresa', 'projeto', 'codigo_amostra']
         verbose_name = 'Amostra'
         verbose_name_plural = 'Amostras'
+        indexes = [
+            models.Index(fields=['codigo_amostra'])]
 
     def __str__(self):
         return f"{self.codigo_amostra}"
@@ -859,6 +862,7 @@ class Placa384(EmpresaMixin, models.Model):
                     # Criar mapeamento
                     PlacaMap384.objects.create(
                         empresa=self.empresa,
+                        projeto=self.projeto,
                         placa_origem=placa_96,
                         placa_destino=self,
                         quadrante=quadrante
@@ -1104,6 +1108,8 @@ class Poco1536(EmpresaMixin, models.Model):
 # MAPEAMENTO
 
 class PlacaMap384(EmpresaMixin, models.Model):
+    empresa = models.ForeignKey('Empresa', on_delete=models.CASCADE)
+    projeto = models.ForeignKey('Projeto', on_delete=models.CASCADE)
     placa_origem = models.ForeignKey(Placa96, on_delete=models.CASCADE)
     placa_destino = models.ForeignKey(Placa384, on_delete=models.CASCADE)
     quadrante = models.IntegerField(
@@ -1113,8 +1119,7 @@ class PlacaMap384(EmpresaMixin, models.Model):
 
     class Meta:
         unique_together = [
-            ['placa_origem', 'placa_destino'],
-            ['placa_destino', 'quadrante']
+            ['empresa', 'projeto', 'placa_origem', 'placa_destino', 'quadrante']
         ]
         verbose_name = 'Mapeamento 96->384'
         verbose_name_plural = 'Mapeamentos 96->384'
@@ -1123,8 +1128,14 @@ class PlacaMap384(EmpresaMixin, models.Model):
         return f"{self.placa_origem} -> {self.placa_destino} (Q{self.quadrante})"
 
     def clean(self):
+        if self.placa_origem.empresa != self.placa_destino.empresa:
+            raise ValidationError(_('As placas devem pertencer à mesma empresa.'))
         if self.placa_origem.projeto != self.placa_destino.projeto:
             raise ValidationError(_('As placas devem pertencer ao mesmo projeto.'))
+        if self.empresa != self.placa_origem.empresa or self.empresa != self.placa_destino.empresa:
+            raise ValidationError(_('A empresa do mapeamento deve ser a mesma das placas.'))
+        if self.projeto != self.placa_origem.projeto or self.projeto != self.placa_destino.projeto:
+            raise ValidationError(_('O projeto do mapeamento deve ser o mesmo das placas.'))
 
 class PlacaMap1536(EmpresaMixin, models.Model):
     placa_origem = models.ForeignKey(Placa384, on_delete=models.CASCADE)

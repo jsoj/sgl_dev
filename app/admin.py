@@ -23,6 +23,11 @@ from django.utils.html import format_html  # Adicionando a importação necessá
 from .servico import ResultadoProcessor
 from import_export import resources, fields
 from import_export.widgets import ForeignKeyWidget
+from import_export.results import Result, RowResult
+from django.http import HttpResponseRedirect, HttpResponse, JsonResponse
+from django.urls import path
+import csv
+from django.core.exceptions import ValidationError
 
 
 import logging
@@ -411,88 +416,87 @@ class ResultadoAmostraInline(admin.TabularInline):
 #-----------------------------------------------
 # AMOSTRA
 
-class AmostraResource(resources.ModelResource):
-    empresa_codigo = fields.Field(
-        column_name='Código da Empresa',
-        attribute='projeto__empresa__codigo'
-    )
-    empresa_nome = fields.Field(
-        column_name='Nome da Empresa',
-        attribute='projeto__empresa__nome'
-    )
-    projeto_codigo = fields.Field(
-        column_name='Código do Projeto',
-        attribute='projeto__codigo_projeto'
-    )
-    projeto_nome = fields.Field(
-        column_name='Nome do Projeto',
-        attribute='projeto__nome_projeto_cliente'
-    )
-    codigo_amostra = fields.Field(  # Adicionado este campo
-        column_name='Código da Amostra',
-        attribute='codigo_amostra'
-    )
-    barcode_cliente = fields.Field(  # Renomeado para manter consistência
-        column_name='Barcode do Cliente',
-        attribute='barcode_cliente'
-    )
+# class AmostraResource(resources.ModelResource):
+#     empresa_codigo = fields.Field(
+#         column_name='Código da Empresa',
+#         attribute='projeto__empresa__codigo'
+#     )
+#     empresa_nome = fields.Field(
+#         column_name='Nome da Empresa',
+#         attribute='projeto__empresa__nome'
+#     )
+#     projeto_codigo = fields.Field(
+#         column_name='Código do Projeto',
+#         attribute='projeto__codigo_projeto'
+#     )
+#     projeto_nome = fields.Field(
+#         column_name='Nome do Projeto',
+#         attribute='projeto__nome_projeto_cliente'
+#     )
+#     codigo_amostra = fields.Field(  # Adicionado este campo
+#         column_name='Código da Amostra',
+#         attribute='codigo_amostra'
+#     )
+#     barcode_cliente = fields.Field(  # Renomeado para manter consistência
+#         column_name='Barcode do Cliente',
+#         attribute='barcode_cliente'
+#     )
 
+#     class Meta:
+#         model = Amostra
+#         fields = (
+#             'id', 
+#             'empresa_codigo', 
+#             'empresa_nome', 
+#             'projeto_codigo', 
+#             'projeto_nome', 
+#             'codigo_amostra',  # Adicionado este campo
+#             'barcode_cliente', 
+#             'data_cadastro'
+#         )
+#         export_order = fields
+#         import_id_fields = ['codigo_amostra']  # Agora o campo existe no resource
+#         skip_unchanged = True
+#         report_skipped = False
+
+class AmostraResource(resources.ModelResource):
     class Meta:
         model = Amostra
-        fields = (
-            'id', 
-            'empresa_codigo', 
-            'empresa_nome', 
-            'projeto_codigo', 
-            'projeto_nome', 
-            'codigo_amostra',  # Adicionado este campo
-            'barcode_cliente', 
-            'data_cadastro'
-        )
-        export_order = fields
-        import_id_fields = ['codigo_amostra']  # Agora o campo existe no resource
+        fields = ('codigo_amostra', 'barcode_cliente')
+        import_id_fields = ['codigo_amostra']
         skip_unchanged = True
-        report_skipped = False
+        use_bulk = True
+        batch_size = 1000
 
-class AmostraAdmin(EmpresaAdminMixin, ImportExportModelAdmin):
+    def before_import_row(self, row, **kwargs):
+        # Converte para string e limpa os dados
+        if 'codigo_amostra' in row:
+            row['codigo_amostra'] = str(row['codigo_amostra']).strip()
+        if 'barcode_cliente' in row:
+            row['barcode_cliente'] = str(row['barcode_cliente']).strip() if row['barcode_cliente'] else None
+
+    def skip_row(self, instance, original, row, import_validation_errors=None):
+        # Pula a criação de novos registros, apenas permite atualização
+        return not instance.pk
+
+class AmostraAdmin(ImportExportModelAdmin):
     resource_class = AmostraResource
-    list_display = ('get_codigo_amostra', 'get_barcode_cliente', 
-                   'empresa_codigo', 'empresa_nome', 'projeto_codigo', 
-                   'projeto_nome', 'data_cadastro')
-    list_filter = ('empresa', 'projeto__codigo_projeto', 'data_cadastro')
-    search_fields = ('codigo_amostra', 'projeto__codigo_projeto', 
-                    'barcode_cliente')
-    autocomplete_fields = ['projeto']
-    
-    def get_codigo_amostra(self, obj):
-        return obj.codigo_amostra
-    get_codigo_amostra.short_description = 'Código da Amostra'
-    
-    def get_barcode_cliente(self, obj):
-        return obj.barcode_cliente
-    get_barcode_cliente.short_description = 'Barcode do Cliente'
-    
-    def empresa_codigo(self, obj):
-        return obj.projeto.empresa.codigo
-    empresa_codigo.short_description = 'Código da Empresa'
-    
-    def empresa_nome(self, obj):
-        return obj.projeto.empresa.nome
-    empresa_nome.short_description = 'Nome da Empresa'
-    
-    def projeto_codigo(self, obj):
-        return obj.projeto.codigo_projeto
-    projeto_codigo.short_description = 'Código do Projeto'
-    
-    def projeto_nome(self, obj):
-        return obj.projeto.nome_projeto_cliente
-    projeto_nome.short_description = 'Nome do Projeto'
+    list_display = ('codigo_amostra', 'barcode_cliente', 'projeto', 'empresa')
+    list_filter = (EmpresaFilter, ProjetoFilter)
+    search_fields = ('codigo_amostra', 'barcode_cliente')
     
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related(
-            'projeto', 'projeto__empresa'
-        )
+        qs = super().get_queryset(request)
+        qs = qs.select_related('projeto', 'projeto__empresa')
+        
+        if not request.user.is_superuser:
+            qs = qs.filter(projeto__empresa=request.user.empresa)
+            
+        return qs
 
+    def empresa(self, obj):
+        return obj.projeto.empresa.nome
+    empresa.admin_order_field = 'projeto__empresa__nome'
 
 #-----------------------------------------------
 # Placas
@@ -962,7 +966,7 @@ class Poco1536Resource(resources.ModelResource):
     projeto_nome = fields.Field(            column_name='Nome do Projeto',          attribute='amostra__projeto__nome_projeto_cliente'    )
     placa_codigo = fields.Field(            column_name='Código da Placa de 1536',  attribute='placa__codigo_placa'    )
     amostra_codigo = fields.Field(          column_name='Código da Amostra',        attribute='amostra__codigo_amostra'    )
-    amostra_barcode = fields.Field (        column_name='Código Barcode do Cliente',attribute='amostra__barcode_cliente')
+    # amostra_barcode = fields.Field (        column_name='Código Barcode do Cliente',attribute='amostra__barcode_cliente')
 
     class Meta:
         model = Poco1536
@@ -1198,8 +1202,9 @@ class ResultadoAmostraResource(resources.ModelResource):
     # Campos do Projeto
     projeto_codigo = fields.Field(
         column_name='Código do Projeto',
-        attribute='amostra__projeto__codigo_projeto'
+        attribute='upload__projeto__codigo_projeto'
     )
+    
     projeto_nome = fields.Field(
         column_name='Nome do Projeto',
         attribute='amostra__projeto__nome_projeto_cliente'
@@ -1209,6 +1214,10 @@ class ResultadoAmostraResource(resources.ModelResource):
     placa_1536 = fields.Field(
         column_name='Código da Placa 1536',
         attribute='upload__placa_1536__codigo_placa'
+    )
+    poco_1536 = fields.Field(
+        column_name='Poço 1536',
+        attribute='amostra__placa_1536__poco_1536'
     )
     
     # Campos da Amostra
@@ -1263,7 +1272,7 @@ class ResultadoAmostraResource(resources.ModelResource):
             'id',
             'empresa_codigo',
             'empresa_nome',
-            'projeto_codigo',
+            # 'projeto_codigo',
             'projeto_nome',
             'placa_1536',
             'poco_1536',
@@ -1289,7 +1298,7 @@ class ResultadoAmostraResource(resources.ModelResource):
         """
         try:
             poco_1536 = resultado_amostra.amostra.poco1536_set.filter(
-                placa__resultadoUpload__projeto=resultado_amostra.upload.projeto
+                placa=resultado_amostra.upload.placa_1536
             ).first()
             return poco_1536.posicao if poco_1536 else '-'
         except Exception as e:
@@ -1416,5 +1425,4 @@ admin_site.register(Protocolo, ProtocoloAdmin)
 admin_site.register(Etapa, EtapaAdmin)
 admin_site.register(ResultadoUpload, ResultadoUploadAdmin)
 admin_site.register(ResultadoAmostra, ResultadoAmostraAdmin)
-
 

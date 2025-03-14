@@ -138,9 +138,12 @@ class PlateLayoutPDF:
                     f"{col+1:02d}"
                 )
 
+            # Obter os poços de controle configurados
+            control_wells = self.projeto.get_control_wells()
+                
             # Poços e numeração
             self.c.setFont("Helvetica", 6)
-            amostras_por_placa = 92  # 96 - 4 controles
+            amostras_por_placa = 96 - len(control_wells)  # Ajustado para considerar os poços de controle
             amostra_inicial = ((plate_number - 1) * amostras_por_placa) + 1
             sample_number = amostra_inicial
 
@@ -149,8 +152,11 @@ class PlateLayoutPDF:
                     x = well_start_x + (col * self.well_diameter * 2)
                     y = well_start_y - (row * self.well_diameter * 2)
                     
-                    # Verifica se é poço de controle (NTC)
-                    is_control = (col == 0 and row < 4)
+                    # Posição do poço
+                    pos = f"{chr(65 + row)}{col+1:02d}"
+                    
+                    # Verifica se é poço de controle
+                    is_control = pos in control_wells
                     
                     # Desenha círculo do poço
                     self.c.circle(
@@ -161,7 +167,7 @@ class PlateLayoutPDF:
                     )
                     
                     if is_control:
-                        # Poços NTC
+                        # Poços de controle
                         self.c.drawCentredString(
                             mm_to_points(x),
                             mm_to_points(y - 1),
@@ -181,7 +187,7 @@ class PlateLayoutPDF:
             print(f"Erro ao desenhar placa {plate_number}: {str(e)}")
             import traceback
             traceback.print_exc()
-            raise
+            raise    
 
     def draw_well_grid(self, x_start, y_start, plate_number):
         """
@@ -291,7 +297,7 @@ class PlateLayoutPDF:
             import traceback
             traceback.print_exc()
             raise
-        
+
 # Exemplo de uso na criação do projeto
 def generate_plate_template(projeto, empresa):
     """
@@ -322,5 +328,6 @@ def generate_plate_template(projeto, empresa):
     pdf_path = generator.generate_pdf()
     
     return pdf_path
+
 
 
