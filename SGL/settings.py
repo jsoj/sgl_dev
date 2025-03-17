@@ -255,3 +255,6 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB
 
 # Settings para otimizar import/export
 IMPORT_EXPORT_CELERY_TASK_EXPIRES = 60  # 1 minuto
+
+#Poços de Controle
+CONTROL_WELL_POSITIONS = ['A01', 'B01', 'C01', 'D01']

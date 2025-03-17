@@ -5,7 +5,7 @@ from app.funcoes import validar_data_liberacao, validar_data_recebimento
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth.models import AbstractUser
-from SGL.settings import AUTH_USER_MODEL
+from SGL.settings import AUTH_USER_MODEL, CONTROL_WELL_POSITIONS
 from django.conf import settings
 from django.core.mail import EmailMessage
 import os  
@@ -14,7 +14,6 @@ from django.core.validators import FileExtensionValidator
 import logging
 
 logger = logging.getLogger(__name__)
-
 
 
 class Empresa(models.Model):
@@ -524,7 +523,7 @@ class Projeto(EmpresaMixin, models.Model):
                 
                 for plate in plates:
                     # Cria os poços de controle NTC
-                    control_positions = ['A01', 'B01', 'C01', 'D01']
+                    control_positions = CONTROL_WELL_POSITIONS
                     for pos in control_positions:
                         well = Poco96.objects.create(
                             empresa=self.empresa,
@@ -572,7 +571,7 @@ class Projeto(EmpresaMixin, models.Model):
             'total_samples': self.amostra_set.count(),
             'total_wells': sum(placa.poco96_set.count() for placa in self.placa96_set.all()),
             'control_wells': sum(
-                placa.poco96_set.filter(posicao__in=['A01', 'B01', 'C01', 'D01']).count() 
+                placa.poco96_set.filter(posicao__in=CONTROL_WELL_POSITIONS).count() 
                 for placa in self.placa96_set.all()
             )
         }
@@ -829,7 +828,7 @@ class Placa384(EmpresaMixin, models.Model):
             amostra__codigo_amostra__icontains='NTC'
         ).count()
 
-    CONTROL_WELL_POSITIONS = ['A01', 'B01', 'C01', 'D01']
+
     WELLS_PER_PLATE = 96
 
     def calculate_384_well_position(self, row_96, col_96, plate_index):

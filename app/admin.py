@@ -416,49 +416,6 @@ class ResultadoAmostraInline(admin.TabularInline):
 #-----------------------------------------------
 # AMOSTRA
 
-# class AmostraResource(resources.ModelResource):
-#     empresa_codigo = fields.Field(
-#         column_name='Código da Empresa',
-#         attribute='projeto__empresa__codigo'
-#     )
-#     empresa_nome = fields.Field(
-#         column_name='Nome da Empresa',
-#         attribute='projeto__empresa__nome'
-#     )
-#     projeto_codigo = fields.Field(
-#         column_name='Código do Projeto',
-#         attribute='projeto__codigo_projeto'
-#     )
-#     projeto_nome = fields.Field(
-#         column_name='Nome do Projeto',
-#         attribute='projeto__nome_projeto_cliente'
-#     )
-#     codigo_amostra = fields.Field(  # Adicionado este campo
-#         column_name='Código da Amostra',
-#         attribute='codigo_amostra'
-#     )
-#     barcode_cliente = fields.Field(  # Renomeado para manter consistência
-#         column_name='Barcode do Cliente',
-#         attribute='barcode_cliente'
-#     )
-
-#     class Meta:
-#         model = Amostra
-#         fields = (
-#             'id', 
-#             'empresa_codigo', 
-#             'empresa_nome', 
-#             'projeto_codigo', 
-#             'projeto_nome', 
-#             'codigo_amostra',  # Adicionado este campo
-#             'barcode_cliente', 
-#             'data_cadastro'
-#         )
-#         export_order = fields
-#         import_id_fields = ['codigo_amostra']  # Agora o campo existe no resource
-#         skip_unchanged = True
-#         report_skipped = False
-
 class AmostraResource(resources.ModelResource):
     class Meta:
         model = Amostra

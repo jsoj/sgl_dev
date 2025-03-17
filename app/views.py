@@ -200,6 +200,7 @@ def criar_placa_384(request):
 
     return render(request, 'criar_placa_384.html', {'empresas': empresas})
 
+
 @login_required
 def get_projetos(request, empresa_id):
     try:
