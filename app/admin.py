@@ -4,12 +4,11 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth import get_user_model
 from django.db.models import Q
-from app.models import ( Tecnologia, Cultivo, Marcador, Projeto, Status, 
-                        Protocolo, Etapa, User,  Amostra, Placa96, 
+from app.models import ( Tecnologia, Cultivo, MarcadorTrait, MarcadorCustomizado, Projeto, Status, 
+                        Etapa, User,  Amostra, Placa96, 
                         Placa384, Placa1536, Empresa,  Poco96, Poco384, Poco1536,    
                         PlacaMap384, PlacaMap1536, ResultadoAmostra, ResultadoUpload, PlacaMap384to384)
 
-from django.urls import path
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django import forms
@@ -23,8 +22,6 @@ from django.utils.html import format_html  # Adicionando a importação necessá
 from .servico import ResultadoProcessor
 from import_export import resources, fields
 from import_export.widgets import ForeignKeyWidget
-from import_export.results import Result, RowResult
-from django.http import HttpResponseRedirect, HttpResponse, JsonResponse
 from django.urls import path
 import csv
 from django.core.exceptions import ValidationError
@@ -246,8 +243,8 @@ class CustomAdminSite(AdminSite):
                     'Cultivo': 'app.cultivo',
                     'Etapa': 'app.etapa',
                     'Tecnologia': 'app.tecnologia',
-                    'Marcador': 'app.marcador',
-                    'Protocolo': 'app.protocolo',
+                    'Marcador Trait': 'app.marcadortrait',
+                    'Marcador Custom': 'app.marcadorcustomizado',
                     'Status': 'app.status',
                     'Usuário': 'app.user',
                 },
@@ -355,7 +352,7 @@ class EmpresaAdminMixin:
         return list_filter
 
 class ProjetoAdmin(EmpresaAdminMixin, admin.ModelAdmin):
-    list_display = ('empresa','empresa__nome','codigo_projeto', 'quantidade_amostras', 'status', 'cultivo', 'created_at')
+    list_display = ('empresa__codigo','empresa__nome','codigo_projeto', 'quantidade_amostras', 'status', 'cultivo', 'created_at')
     list_display_links = ["codigo_projeto"]
     list_filter = (EmpresaFilter,ProjetoFilter,'empresa','codigo_projeto', 'status', 'cultivo')  # Empresa primeiro para facilitar filtragem
     search_fields = ('codigo_projeto', 'nome_projeto_cliente', 'empresa__nome')
@@ -458,7 +455,7 @@ class AmostraAdmin(ImportExportModelAdmin):
 #-----------------------------------------------
 # Placas
 class Placa96Admin(EmpresaAdminMixin, admin.ModelAdmin):
-    list_display = ('empresa', 'empresa__nome','projeto','codigo_placa', 'get_amostras_count',  'data_criacao', 'is_active')
+    list_display = ('empresa__codigo', 'empresa__nome','projeto','codigo_placa', 'get_amostras_count',  'data_criacao', 'is_active')
     list_display_links=['codigo_placa']
     list_filter = (EmpresaFilter, ProjetoFilter,  'data_criacao', 'is_active')
     search_fields = ('codigo_placa', 'projeto__codigo_projeto')
@@ -470,7 +467,7 @@ class Placa96Admin(EmpresaAdminMixin, admin.ModelAdmin):
         return super().get_queryset(request).select_related('projeto', 'empresa')
 
 class Placa384Admin(admin.ModelAdmin):
-   list_display = ('empresa', 'empresa__nome','projeto','codigo_placa', 'get_amostras_count', 'data_criacao', 'is_active')
+   list_display = ('empresa__codigo', 'empresa__nome','projeto','codigo_placa', 'get_amostras_count', 'data_criacao', 'is_active')
    list_display_links=['codigo_placa']
    list_filter = (EmpresaFilter, ProjetoFilter, 'codigo_placa','is_active')
    search_fields = ('codigo_placa', 'projeto__codigo_projeto')
@@ -825,7 +822,7 @@ class Placa384Admin(admin.ModelAdmin):
         return super().changelist_view(request, extra_context)
 
 class Placa1536Admin(EmpresaAdminMixin, admin.ModelAdmin):
-    list_display = ('empresa', 'empresa__nome','projeto', 'codigo_placa', 'get_amostras_count','data_criacao',  'is_active')
+    list_display = ('empresa__codigo', 'empresa__nome','projeto', 'codigo_placa', 'get_amostras_count','data_criacao',  'is_active')
     list_display_links=['codigo_placa']
     list_filter = (EmpresaFilter, ProjetoFilter,  'data_criacao', 'is_active')
     search_fields = ('codigo_placa', 'projeto__codigo_projeto')
@@ -942,27 +939,31 @@ class Poco1536Admin(EmpresaAdminMixin, ImportExportModelAdmin):
 #-----------------------------------------------
 # Cadastros
 
-class TecnologiaAdmin(EmpresaAdminMixin, admin.ModelAdmin):
+class TecnologiaAdmin(admin.ModelAdmin):
     list_display = ('nome', 'caracteristica', 'vencimento_patente', 'data_cadastro')
     search_fields = ('nome',)
 
-class CultivoAdmin(EmpresaAdminMixin, admin.ModelAdmin):
+class CultivoAdmin(admin.ModelAdmin):
     list_display = ('nome', 'nome_cientifico', 'data_cadastro')
     search_fields = ('nome',)
 
-class MarcadorAdmin(EmpresaAdminMixin, admin.ModelAdmin):
-    list_display = ('nome', 'cultivo', 'is_customizado')
+class MarcadorTraitAdmin(admin.ModelAdmin):
+    list_display = ('nome', 'cultivo')
     search_fields = ('nome',)
 
-class StatusAdmin(EmpresaAdminMixin, admin.ModelAdmin):
+class MarcadorCustomizadoAdmin(admin.ModelAdmin):
+    list_display = ('nome', 'cultivo')
+    search_fields = ('nome',)
+
+class StatusAdmin(admin.ModelAdmin):
     list_display = ('nome',)
     search_fields = ('nome',)
 
-class ProtocoloAdmin(EmpresaAdminMixin, admin.ModelAdmin):
+class ProtocoloAdmin(admin.ModelAdmin):
     list_display = ('nome',)
     search_fields = ('nome',)
 
-class EtapaAdmin(EmpresaAdminMixin, admin.ModelAdmin):
+class EtapaAdmin(admin.ModelAdmin):
     list_display = ('nome',)
     search_fields = ('nome',)
 
@@ -1376,9 +1377,9 @@ admin_site.register(PlacaMap1536, PlacaMap1536Admin)
 admin_site.register(PlacaMap384to384, PlacaMap384to384Admin)
 admin_site.register(Tecnologia, TecnologiaAdmin)
 admin_site.register(Cultivo, CultivoAdmin)
-admin_site.register(Marcador, MarcadorAdmin)
+admin_site.register(MarcadorTrait, MarcadorTraitAdmin)
+admin_site.register(MarcadorCustomizado, MarcadorCustomizadoAdmin)
 admin_site.register(Status, StatusAdmin)
-admin_site.register(Protocolo, ProtocoloAdmin)
 admin_site.register(Etapa, EtapaAdmin)
 admin_site.register(ResultadoUpload, ResultadoUploadAdmin)
 admin_site.register(ResultadoAmostra, ResultadoAmostraAdmin)

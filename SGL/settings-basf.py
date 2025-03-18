@@ -28,7 +28,7 @@ SECRET_KEY = 'django-insecure-!+qk-%hvw_7ez$fa)+9wz#wvi_g1zf3wv$^0ed0*p69c@l3%b3
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    'dev.agromarkers.com.br',
+    'basf.agromarkers.com.br',
     'localhost',
     '127.0.0.1',
 ]
@@ -37,6 +37,8 @@ ALLOWED_HOSTS = [
 # Application definition
 
 INSTALLED_APPS = [
+    # 'admin_interface',
+    # 'colorfield',
     'app',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -57,28 +59,11 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # 'django_csp.middleware.CSPMiddleware',  # Adicione esta linha se não existir
 ]
 
 CSRF_COOKIE_SECURE = False  # Temporariamente para testes
+
 ROOT_URLCONF = 'SGL.urls'
-
-# # CSP Settings
-# CSP_DEFAULT_SRC = ("'self'",)
-# CSP_SCRIPT_SRC = ("'self'", 'https://trusted-cdn.com', 'resource:')  # Add 'resource:' for devtools, remove in production
-# CSP_STYLE_SRC = ("'self'", 'https://fonts.googleapis.com')
-# CSP_IMG_SRC = ("'self'", 'data:')
-# CSP_FONT_SRC = ("'self'", 'https://fonts.gstatic.com')
-# CSP_OBJECT_SRC = ("'none'",)
-# CSP_MEDIA_SRC = ("'self'",)
-# CSP_FRAME_SRC = ("'none'",)
-# CSP_CONNECT_SRC = ("'self'",)
-# CSP_BASE_URI = ("'self'",)
-# CSP_FRAME_ANCESTORS = ("'none'",)
-# CSP_SCRIPT_SRC = ("'self'", 'https://trusted-cdn.com', 'resource:', "'unsafe-inline'", "'unsafe-eval'")
-# CSP_SCRIPT_SRC_ATTR = ("'self'", "'unsafe-inline'")
-# CSP_STYLE_SRC = ("'self'", 'https://fonts.googleapis.com', "'unsafe-inline'")
-
 
 TEMPLATES = [
     {
@@ -108,7 +93,7 @@ WSGI_APPLICATION = 'SGL.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'db_dev',
+        'NAME': 'db_basf',
         'USER': 'django_user',
         'PASSWORD': 'Jsoj@3105',
         'HOST': 'localhost',
@@ -272,4 +257,4 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB
 IMPORT_EXPORT_CELERY_TASK_EXPIRES = 60  # 1 minuto
 
 #Poços de Controle
-CONTROL_WELL_POSITIONS = ['A01', 'B01', 'C01', 'D01']
+CONTROL_WELL_POSITIONS = ['H05','H06','H07','H08','H09','H10','H11','H12']

@@ -37,7 +37,7 @@ class Empresa(models.Model):
         ordering = ['nome']
 
     def __str__(self):
-        return self.codigo
+        return self.nome
 
 class User(AbstractUser):
     telefone = models.CharField(max_length=20, blank=True, null=True)
@@ -70,7 +70,17 @@ ORIGEM_CHOICES = [
     ("FOLHA","FOLHA"),
      ("SEMENTE","SEMENTE",)]
 
-class Tecnologia(EmpresaMixin, models.Model):
+TIPO_CHOICES = [
+    ("PLANTA 02 DISCOS]","PLANTA 02 DISCOS"),
+    ("PLANTA 04 DISCOS]","PLANTA 04 DISCOS"),
+    ("BULK 08 DISCOS","BULK 08 DISCOS",)]
+
+IF_MARCADOR_CHOICES = [
+    ("HOMO-HEMI","HOMO-HEMI"),
+    ("HOMO","HOMO",)]
+
+
+class Tecnologia( models.Model):
     nome = models.CharField(max_length=40, unique=True)
     caracteristica = models.TextField(max_length=100, blank=True)
     vencimento_patente = models.DateField(blank=True, null=True)
@@ -81,15 +91,7 @@ class Tecnologia(EmpresaMixin, models.Model):
     class Meta:
         verbose_name_plural = 'Tecnologias'
  
-class Protocolo(EmpresaMixin, models.Model):
-    nome = models.CharField(max_length=40, unique=True)
-
-    def __str__(self) -> str:
-        return self.nome
-    class Meta:
-       verbose_name_plural = 'Protocolos'
-
-class Cultivo(EmpresaMixin, models.Model):
+class Cultivo( models.Model):
     nome = models.CharField(max_length=40)
     nome_cientifico = models.CharField(max_length=40, blank=True, null=True)
     data_cadastro = models.DateField(auto_now_add=True)
@@ -99,7 +101,7 @@ class Cultivo(EmpresaMixin, models.Model):
     class Meta:
        verbose_name_plural = 'Cultivos'
 
-class Status(EmpresaMixin, models.Model):
+class Status( models.Model):
     nome = models.CharField(max_length=40)
 
     def __str__(self) -> str:
@@ -107,7 +109,7 @@ class Status(EmpresaMixin, models.Model):
     class Meta:
        verbose_name_plural = 'Status'
 
-class Etapa(EmpresaMixin, models.Model):
+class Etapa( models.Model):
     nome = models.CharField(max_length=40)
 
     def __str__(self) -> str:
@@ -115,45 +117,64 @@ class Etapa(EmpresaMixin, models.Model):
     class Meta:
        verbose_name_plural = 'Etapas'
 
-class Marcador(EmpresaMixin, models.Model):
+class MarcadorTrait( models.Model):
     cultivo = models.ForeignKey(Cultivo, on_delete=models.CASCADE, blank=False, null=False, help_text='Escolha ou cadastre um cultivo para este marcador. Exemplo: Soja')
     nome = models.CharField(max_length=40)
     caracteristica = models.TextField(blank=True, null=True)
-    is_customizado = models.BooleanField(default=False)
     data_cadastro = models.DateField(auto_now_add=True)
 
     def __str__(self) -> str:
         return self.nome
     class Meta:
-       verbose_name_plural = 'Marcadores'
+       verbose_name_plural = 'Marcadores Traits'
+
+class MarcadorCustomizado( models.Model):
+    cultivo = models.ForeignKey(Cultivo, on_delete=models.CASCADE, blank=False, null=False, help_text='Escolha ou cadastre um cultivo para este marcador. Exemplo: Soja')
+    nome = models.CharField(max_length=40)
+    caracteristica = models.TextField(blank=True, null=True)
+    data_cadastro = models.DateField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return self.nome
+    class Meta:
+       verbose_name_plural = 'Marcadores Customizados'
 
 # INICIO PROJETO 
 
 class Projeto(EmpresaMixin, models.Model):
 
-    codigo_projeto = models.CharField(max_length=5, blank=False, 
-                                    help_text='Código do projeto são 5 números sequenciais e únicos para o cliente. Exemplo: 00001')
+    codigo_projeto = models.CharField(max_length=20, blank=False,                                                                            help_text='Código do projeto devem ser únicos por cliente. Exemplo: 00001, PROJ01')
+    responsavel = models.EmailField( max_length=100, blank=False,                                                                           help_text='E-mail do responsável pelo projeto no cliente. Exemplo: contato@seu_email.com')
     quantidade_amostras = models.PositiveIntegerField(                  blank=False,    null=False,                                         help_text='Quantidade de amostras deste projeto. Exemplo: 15.000')
+    numero_placas_96 = models.PositiveSmallIntegerField(                blank=True,     null=True,                                          help_text='O número de Placas de 96 será calculado automaticamente com base no número de amostras')
+    placas_inicial =  models.PositiveSmallIntegerField(                 blank=True,     null=True,                                          help_text='Placa inicial. Exemplo: 1')
+    placas_final =  models.PositiveSmallIntegerField(                   blank=True,     null=True,                                          help_text='Placa final. Exemplo: 96')
+
     cultivo = models.ForeignKey(Cultivo,                                blank=True,     null=True,  default=1,  on_delete=models.CASCADE,   help_text='Escolha ou cadastre um cultivo. Exemplo: Soja')
     origem_amostra = models.CharField(                  max_length=10,  blank=True, choices=ORIGEM_CHOICES, default=1,                      help_text='Origem da amostra no cliente. Exemplo: Planta, Linha, Semente')
-    tecnologia = models.ForeignKey(Tecnologia,                          blank=True,     null=True,              on_delete=models.CASCADE,   help_text='Escolha ou cadastre um evento biotecnológico deste projeto. Exemplo: RR, CE3, I2X')
-    marcador = models.ManyToManyField(Marcador,                         blank=True,                                                         help_text='Escolha ou cadastre os marcadores que serão analisados neste projeto. Exemplo: RR2BT1, E3BT, RGH1-2')
+   
+    tecnologia_parental1 = models.ForeignKey(Tecnologia,                blank=True,     null=True,              on_delete=models.CASCADE,   help_text='Escolha ou cadastre um evento biotecnológico do parental 01', related_name='projetos_parental1')
+    tecnologia_parental2 = models.ForeignKey(Tecnologia,                blank=True,     null=True,              on_delete=models.CASCADE,   help_text='Escolha ou cadastre um evento biotecnológico do parental 02', related_name='projetos_parental2')
+    tecnologia_target = models.ForeignKey(Tecnologia,                   blank=True,     null=True,              on_delete=models.CASCADE,   help_text='Escolha ou cadastre um evento biotecnológico deste projeto. Exemplo: RR, CE3, I2X', related_name='projetos_target')
+    
+    proporcao = models.PositiveSmallIntegerField(                       blank=True,     null=True,                                          help_text='Qual a proporção esperada de presença da tecnologia. Exemplo: 18,65%')
+    marcador_trait = models.ManyToManyField(MarcadorTrait,              blank=True,                                                         help_text='Escolha os marcadores de traits do projeto. Exemplo: RR2BT1, E3BT')
+    marcador_customizado = models.ManyToManyField(MarcadorCustomizado,  blank=True,                                                         help_text='Escolha os marcadores customizados do projeto. Exemplo: RGH1-2, cor de flor')
     quantidade_traits = models.PositiveSmallIntegerField(               blank=True,     null=True,                                          help_text='Quantidade de traits a serem avaliados neste projeto. Exemplo: 1, 2')
     quantidade_marcador_customizado = models.PositiveSmallIntegerField( blank=True,     null=True,                                          help_text='Quantidade de marcadores customizados a serem analisados neste projeto. Exmmplo: 2')
     status = models.ForeignKey(Status,                                  blank=True,     null=True,  default=1,  on_delete=models.CASCADE,   help_text='Escolha o status do projeto')
     etapa = models.ForeignKey(Etapa,                                    blank=True,     null=True,  default=1,  on_delete=models.CASCADE,   help_text='Escolha a estapa da amostra do projeto')
-    protocolo = models.ForeignKey(Protocolo,                            blank=True,     null=True,  default=1,  on_delete=models.CASCADE,   help_text ='Escolha o protocolo ex. PCR em tempo real, microsatelites')
     nome_projeto_cliente = models.CharField(            max_length=100, blank=True,     null=True,                                          help_text='Nome de guerra do projeto. Exemplo: RV_CZF4_MULTIPGN_1x3_02_01')
-    numero_placas_96 = models.PositiveSmallIntegerField(                blank=True,     null=True,                                          help_text='O número de Placas de 96 será calculado automaticamente com base no número de amostras')
-    placas_inicial =  models.CharField(                 max_length=10,  blank=True,     null=True,                                          help_text='Placa inicial. Exemplo: 1')
-    placas_final =  models.CharField(                   max_length=10,  blank=True,                                                         help_text='Placa final. Exemplo: 96')
-    responsavel = models.CharField(                     max_length=100, blank=True,                                                         help_text='Nome do responsável pelo projeto no cliente. Exemplo: Osmaria')
     prioridade = models.PositiveSmallIntegerField(default=0,                                                                                help_text='Prioridade do projeto. Exemplo: 01 prioridade máxima, 09 baixa prioridade')
     codigo_ensaio = models.CharField(                   max_length=10,  blank=True,                                                         help_text='Código de ensaio do cliente. Exemplo: 51899137 ')
     setor_cliente = models.CharField(                   max_length=40,  blank=True,                                                         help_text='Setor interno do cliente. Exemplo: Nursery, Pureza, Produção, QAQC' )
     local_cliente = models.CharField(                   max_length=40,  blank=True,                                                         help_text='Local de referência do cliente. Exemplo: Porto Nacional, Rio Verde')
     ano_plantio_ensaio = models.IntegerField(                           blank=True,     null=True,                                          help_text='Ano do plantio com 4 dígitos. Exemplo: 2024')
-    numero_discos = models.CharField(                   max_length=40,  blank=True,                                                         help_text='Números de discos. Exemplo: TRIFÓLIO #4 PUNCHS ou TRIFÓLIO #8 PUNCHS')
+
+    tipo_amostra = models.CharField(                  max_length=20,  blank=True, choices=TIPO_CHOICES, default=1,                          help_text='Escolha o tipo de origem e a quantidade de discos da amostras')
+    herbicida = models.BooleanField(default=False,                                                                                          help_text='Foi aplicado herbicida para controle de homozigose' )
+    marcador_analisado = models.BooleanField(default=False,                                                                                 help_text='Já foi passado marcador no passado.' )
+    se_marcador_analisado = models.CharField(         max_length=20,  blank=True, choices=IF_MARCADOR_CHOICES, default=1,                   help_text='Se já foi passado marcador, qual foi o resultado?')
     data_planejada_envio = models.DateField(                            blank=True, null=True)
     data_envio = models.DateField(                                      blank=True, null=True)
     data_planejada_liberacao_resultados = models.DateField(             blank=True, null=True)
@@ -164,9 +185,17 @@ class Projeto(EmpresaMixin, models.Model):
     data_destruicao = models.DateField(                                 blank=True, null=True)
     created_at = models.DateField(   auto_now_add=True)
     data_alteracao = models.DateField(  auto_now=True)
-    tem_template = models.BooleanField(                                                         default=False)
-    ativo = models.BooleanField(                                                                default=True)
-    destruido = models.BooleanField(                                                            default=False)
+    tem_template = models.BooleanField(          
+        editable=False,
+        default=False)
+    ativo = models.BooleanField(  
+        editable=False,
+        default=True)
+    destruido = models.BooleanField(
+        editable=False,
+        default=False)
+        
+    
     data_destruicao = models.DateField( auto_now=True)
     comentarios = models.TextField(                                    blank=True, null=True,                                               help_text='Registre toda e qualquer informação acessória para este projeto')
     
@@ -256,8 +285,8 @@ class Projeto(EmpresaMixin, models.Model):
     def get_marcadores_por_tipo(self):
         """Retorna os marcadores separados por tipo (customizados e não customizados)"""
         return {
-            'customizados': self.marcador.filter(is_customizado=True),
-            'padroes': self.marcador.filter(is_customizado=False)
+            'customizados': self.marcador_customizado.all(),
+            'padroes': self.marcador_trait.all()
         }
 
     def gerar_codigo_unico(self):
@@ -287,8 +316,10 @@ class Projeto(EmpresaMixin, models.Model):
     @property   
     def total_datapoints_esperados(self):
         """Calcula o total de datapoints esperados para o projeto"""
-        if self.quantidade_amostras and self.marcador.count():
-            return self.quantidade_amostras * self.marcador.count()
+        # Corrigido para usar marcador_trait e marcador_customizado em vez de marcador inexistente
+        total_marcadores = self.marcador_trait.count() + self.marcador_customizado.count()
+        if self.quantidade_amostras and total_marcadores > 0:
+            return self.quantidade_amostras * total_marcadores
         return 0
     
     @classmethod
@@ -299,8 +330,10 @@ class Projeto(EmpresaMixin, models.Model):
             'total_projetos': cls.objects.count(),
             'total_amostras': cls.objects.aggregate(Sum('quantidade_amostras'))['quantidade_amostras__sum'],
             'total_placas': cls.objects.aggregate(Sum('numero_placas_96'))['numero_placas_96__sum'],
+            # Corrigido para contar tanto marcador_trait quanto marcador_customizado
             'media_marcadores': cls.objects.annotate(
-                num_marcadores=Count('marcador')).aggregate(Avg('num_marcadores'))['num_marcadores__avg']
+                num_marcadores=Count('marcador_trait') + Count('marcador_customizado')
+            ).aggregate(Avg('num_marcadores'))['num_marcadores__avg']
         }
 
     @classmethod
@@ -384,10 +417,10 @@ class Projeto(EmpresaMixin, models.Model):
         )
 
         return {
-            # Média de datapoints
+            # Média de datapoints - corrigido para soma de marcador_trait e marcador_customizado
             'media_datapoints': cls.objects.annotate(
-                num_marcadores=Count('marcador'),
-                datapoints=F('quantidade_amostras') * F('num_marcadores')
+                num_marcadores=Count('marcador_trait') + Count('marcador_customizado'),
+                datapoints=F('quantidade_amostras') * (Count('marcador_trait') + Count('marcador_customizado'))
             ).aggregate(avg_datapoints=Avg('datapoints'))['avg_datapoints'],
 
             # Taxa de conclusão (projetos com data_liberacao_resultados / total)
@@ -413,7 +446,7 @@ class Projeto(EmpresaMixin, models.Model):
         from django.db.models import Count
         return cls.objects.values(
             'cultivo__nome',
-            'tecnologia__nome'
+            'tecnologia_target__nome'  # Corrigido para usar tecnologia_target em vez de tecnologia
         ).annotate(
             total_projetos=Count('id'),
             total_amostras=Sum('quantidade_amostras')
@@ -1202,7 +1235,7 @@ class PlacaMap384to384(EmpresaMixin, models.Model):
 
 # RESULTADO
 
-class ResultadoUpload(models.Model):
+class ResultadoUpload(EmpresaMixin,models.Model):
     """
     Modelo para gerenciar o upload de arquivos de resultado
     """
@@ -1247,7 +1280,7 @@ class ResultadoUpload(models.Model):
         if self.placa_1536.projeto != self.projeto:
             raise ValidationError("A placa 1536 selecionada não pertence ao projeto informado")
 
-class ResultadoAmostra(models.Model):
+class ResultadoAmostra(EmpresaMixin,models.Model):
     """
     Modelo para armazenar os resultados por amostra
     """
