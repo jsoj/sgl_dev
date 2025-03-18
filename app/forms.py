@@ -4,11 +4,9 @@ from django import forms
 from django.core.exceptions import ValidationError
 from .models import Empresa, Projeto, Placa96, Placa384, PlacaMap384to384, Placa1536, ResultadoUpload, ResultadoAmostra
 from django.contrib import admin
-from django.urls import path
-from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.db.models import Count
-from django.utils.html import format_html
+
 
 import logging
 logger = logging.getLogger(__name__)

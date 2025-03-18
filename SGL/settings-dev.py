@@ -37,6 +37,8 @@ ALLOWED_HOSTS = [
 # Application definition
 
 INSTALLED_APPS = [
+    # 'admin_interface',
+    # 'colorfield',
     'app',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -57,28 +59,11 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # 'django_csp.middleware.CSPMiddleware',  # Adicione esta linha se não existir
 ]
 
 CSRF_COOKIE_SECURE = False  # Temporariamente para testes
+
 ROOT_URLCONF = 'SGL.urls'
-
-# # CSP Settings
-# CSP_DEFAULT_SRC = ("'self'",)
-# CSP_SCRIPT_SRC = ("'self'", 'https://trusted-cdn.com', 'resource:')  # Add 'resource:' for devtools, remove in production
-# CSP_STYLE_SRC = ("'self'", 'https://fonts.googleapis.com')
-# CSP_IMG_SRC = ("'self'", 'data:')
-# CSP_FONT_SRC = ("'self'", 'https://fonts.gstatic.com')
-# CSP_OBJECT_SRC = ("'none'",)
-# CSP_MEDIA_SRC = ("'self'",)
-# CSP_FRAME_SRC = ("'none'",)
-# CSP_CONNECT_SRC = ("'self'",)
-# CSP_BASE_URI = ("'self'",)
-# CSP_FRAME_ANCESTORS = ("'none'",)
-# CSP_SCRIPT_SRC = ("'self'", 'https://trusted-cdn.com', 'resource:', "'unsafe-inline'", "'unsafe-eval'")
-# CSP_SCRIPT_SRC_ATTR = ("'self'", "'unsafe-inline'")
-# CSP_STYLE_SRC = ("'self'", 'https://fonts.googleapis.com', "'unsafe-inline'")
-
 
 TEMPLATES = [
     {
