@@ -199,6 +199,13 @@ class Projeto(EmpresaMixin, models.Model):
     data_destruicao = models.DateField( auto_now=True)
     comentarios = models.TextField(                                    blank=True, null=True,                                               help_text='Registre toda e qualquer informação acessória para este projeto')
     
+    # Campos de controle de PDF e email
+    template_pdf_gerado = models.BooleanField(default=False, help_text="Indica se o PDF do template foi gerado com sucesso")
+    template_email_enviado = models.BooleanField(default=False, help_text="Indica se o email com o template foi enviado com sucesso")
+    projeto_pdf_gerado = models.BooleanField(default=False, help_text="Indica se o PDF do projeto foi gerado com sucesso")
+    projeto_email_enviado = models.BooleanField(default=False, help_text="Indica se o email com informações do projeto foi enviado com sucesso")
+    falha_envio_mensagem = models.TextField(blank=True, null=True, help_text="Mensagens de erro durante a geração/envio de PDFs")
+    
     class Meta:
         unique_together = ['empresa', 'codigo_projeto']
         verbose_name = 'Projeto'
@@ -485,7 +492,18 @@ class Projeto(EmpresaMixin, models.Model):
     def gerar_template_pdf(self):
         print("gerar template foi ativado")
         from .template import generate_plate_template
-        return generate_plate_template(self, self.empresa)
+        try:
+            pdf_path = generate_plate_template(self, self.empresa)
+            self.template_pdf_gerado = True
+            self.save(update_fields=['template_pdf_gerado'])
+            logger.info(f"PDF do template gerado com sucesso para o projeto {self.codigo_projeto}")
+            return pdf_path
+        except Exception as e:
+            erro_msg = f"Erro ao gerar PDF do template: {str(e)}"
+            logger.error(erro_msg)
+            self.falha_envio_mensagem = f"{self.falha_envio_mensagem or ''}\n{erro_msg}"
+            self.save(update_fields=['falha_envio_mensagem'])
+            raise
 
     def generate_plate_code(self, plate_number):
         """Gera um código único para a placa baseado no projeto e número sequencial"""
@@ -652,65 +670,105 @@ class Projeto(EmpresaMixin, models.Model):
                 
                 # Configurado para usar o console backend em desenvolvimento
                 email.send()
+                logger.info(f"Email com template enviado com sucesso para {destinatarios} - Projeto {self.codigo_projeto}")
+                
+                # Atualizar status de envio
+                self.template_email_enviado = True
+                self.save(update_fields=['template_email_enviado'])
+                
                 print(f"Email enviado com sucesso para {destinatarios}")
                 print(f"PDF mantido em: {pdf_path}")
+                return True
             else:
-                print(f"Arquivo PDF não encontrado: {pdf_path}")
+                erro_msg = f"Arquivo PDF não encontrado: {pdf_path}"
+                logger.error(erro_msg)
+                print(erro_msg)
+                
+                # Registrar o erro
+                self.falha_envio_mensagem = f"{self.falha_envio_mensagem or ''}\n{erro_msg}"
+                self.save(update_fields=['falha_envio_mensagem'])
+                return False
 
         except Exception as e:
-            print(f"Erro ao enviar email: {str(e)}")
-
-# Removida a parte que apagava o arquivo
-
-#---------------------------------------------------------------------------
-
-    # def save(self, *args, **kwargs):
-    #     with transaction.atomic():
-    #         is_new = self.pk is None  # Verifica se é uma criação nova
-    #         user = kwargs.pop('user', None)
-    #         empresa = kwargs.pop('empresa', None)
+            erro_msg = f"Erro ao enviar email com template: {str(e)}"
+            logger.error(erro_msg)
+            print(erro_msg)
             
-    #         if not self.empresa_id:  # Se ainda não tem empresa definida
-    #             if empresa:  # Se foi passada uma empresa
-    #                 self.empresa = empresa
-    #             elif user and not user.is_superuser and user.empresa:  # Se foi passado um user
-    #                 self.empresa = user.empresa
-                    
-    #         super().save(*args, **kwargs)
-    #         print("Projeto salvo com ID: {self.pk}")
+            # Registrar o erro
+            self.falha_envio_mensagem = f"{self.falha_envio_mensagem or ''}\n{erro_msg}"
+            self.save(update_fields=['falha_envio_mensagem'])
+            return False
+
+    def enviar_pdf_projeto(self):
+        """
+        Gera e envia um PDF com as informações do projeto para os emails configurados
+        """
+        try:
+            from .project_pdf import generate_project_pdf
+            pdf_content = generate_project_pdf(self)
             
-
-    #         if is_new:  # Novo projeto
-    #             try:
-    #                 self.create_project_resources()
-    #                 # Gerar template
-    #                 pdf_path = self.gerar_template_pdf()
-                    
-    #                 # Enviar por email
-    #                 self.enviar_template_email(pdf_path)
-                    
-    #                 # Marcar template como enviado
-    #                 self.tem_template = True
-    #                 self.save(update_fields=['tem_template'])
-                    
-    #             except Exception as e:
-    #                 print(f"Erro ao gerar/enviar template: {str(e)}")
-
-
-    #     # num_placas96 = math.ceil(self.quantidade_amostras / 92)
-
-    #     # for i in range(num_placas96):
-    #     #     Placa96.objects.create(
-    #     #         projeto=self,
-    #     #         codigo_placa=i+1
-    #     #     )
-
-    #     # for j in range(self.quantidade_amostras):
-    #     #     codigo_amostra = f"{self.empresa.codigo} - {self.codigo_projeto} - {j+1:03d}"
-    #     #     Amostra.objects.create(
-    #     #         projeto=self,
-    #     #         codigo_amostra=codigo_amostra
-    #     #     )
+            # Marcar como gerado
+            self.projeto_pdf_gerado = True
+            self.save(update_fields=['projeto_pdf_gerado'])
+            
+            # Lista de destinatários
+            destinatarios = ['contato@agromarkers.com.br']
+            if self.empresa.email:
+                destinatarios.append(self.empresa.email)
+            if self.responsavel:
+                destinatarios.append(self.responsavel)
+                
+            # Preparar email
+            subject = f'Informações do Projeto: {self.codigo_projeto}'
+            body = f"""
+            Prezado(a),
+            
+            Segue em anexo o documento com as informações completas do projeto:
+            
+            Empresa: {self.empresa.nome}
+            Código do Projeto: {self.codigo_projeto}
+            Nome do Projeto: {self.nome_projeto_cliente or 'Não informado'}
+            Quantidade de Amostras: {self.quantidade_amostras}
+            
+            Este é um email automático, por favor não responda.
+            """
+            
+            # Criar email
+            email = EmailMessage(
+                subject=subject,
+                body=body,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=destinatarios
+            )
+            
+            # Anexar PDF
+            filename = f"projeto_{self.empresa.codigo}_{self.codigo_projeto}.pdf"
+            email.attach(filename, pdf_content, 'application/pdf')
+            
+            # Enviar email
+            email.send()
+            logger.info(f"Email com PDF do projeto enviado com sucesso para {destinatarios} - Projeto {self.codigo_projeto}")
+            print(f"Email com PDF do projeto enviado com sucesso para {destinatarios}")
+            
+            # Atualizar status de envio
+            self.projeto_email_enviado = True
+            self.save(update_fields=['projeto_email_enviado'])
+            
+            return True
+            
+        except Exception as e:
+            erro_msg = f"Erro ao gerar/enviar PDF do projeto: {str(e)}"
+            logger.error(erro_msg)
+            print(erro_msg)
+            
+            import traceback
+            traceback.print_exc()
+            
+            # Registrar o erro
+            self.falha_envio_mensagem = f"{self.falha_envio_mensagem or ''}\n{erro_msg}"
+            self.save(update_fields=['falha_envio_mensagem'])
+            
+            return False
 
     def save(self, *args, **kwargs):
         try:
@@ -744,11 +802,11 @@ class Projeto(EmpresaMixin, models.Model):
                             pdf_path = self.gerar_template_pdf()
                             print(f"PDF gerado em: {pdf_path}")
 
-                            # Tenta enviar o email
+                            # Tenta enviar o email com o template
                             try:
-                                print("Enviando email...")
+                                print("Enviando email com template...")
                                 self.enviar_template_email(pdf_path)
-                                print("Email enviado com sucesso")
+                                print("Email com template enviado com sucesso")
 
                                 # Marca o template como enviado
                                 self.tem_template = True
@@ -757,19 +815,38 @@ class Projeto(EmpresaMixin, models.Model):
                                 print("Status do template atualizado")
 
                             except Exception as email_error:
-                                print(f"Erro ao enviar email: {str(email_error)}")
+                                erro_msg = f"Erro ao enviar email com template: {str(email_error)}"
+                                print(erro_msg)
+                                logger.error(erro_msg)
                                 # Continua mesmo se o email falhar
                                 
                         except Exception as pdf_error:
-                            print(f"Erro ao gerar PDF: {str(pdf_error)}")
+                            erro_msg = f"Erro ao gerar PDF do template: {str(pdf_error)}"
+                            print(erro_msg)
+                            logger.error(erro_msg)
                             # Continua mesmo se o PDF falhar
 
+                        # Enviar o PDF com informações do projeto
+                        try:
+                            print("Enviando PDF do projeto...")
+                            self.enviar_pdf_projeto()
+                            print("Email com informações do projeto enviado com sucesso")
+                        except Exception as proj_pdf_error:
+                            erro_msg = f"Erro ao enviar PDF do projeto: {str(proj_pdf_error)}"
+                            print(erro_msg)
+                            logger.error(erro_msg)
+                            # Continua mesmo se o envio falhar
+
                     except Exception as resource_error:
-                        print(f"Erro ao criar recursos: {str(resource_error)}")
+                        erro_msg = f"Erro ao criar recursos: {str(resource_error)}"
+                        print(erro_msg)
+                        logger.error(erro_msg)
                         raise  # Levanta o erro para reverter a transação
 
         except Exception as e:
-            print(f"Erro durante o save do projeto: {str(e)}")
+            erro_msg = f"Erro durante o save do projeto: {str(e)}"
+            print(erro_msg)
+            logger.error(erro_msg)
             import traceback
             traceback.print_exc()
             raise
@@ -777,6 +854,59 @@ class Projeto(EmpresaMixin, models.Model):
         print("Projeto salvo com sucesso")
         return self
 
+    def verificar_status_comunicacao(self):
+        """
+        Retorna o status de geração/envio dos PDFs e emails do projeto
+        """
+        return {
+            'template_pdf_gerado': self.template_pdf_gerado,
+            'template_email_enviado': self.template_email_enviado,
+            'projeto_pdf_gerado': self.projeto_pdf_gerado,
+            'projeto_email_enviado': self.projeto_email_enviado,
+            'tem_erros': bool(self.falha_envio_mensagem),
+            'mensagens_erro': self.falha_envio_mensagem
+        }
+    
+    def reenviar_comunicacoes(self):
+        """
+        Tenta reenviar os PDFs e emails que não foram enviados com sucesso
+        """
+        resultado = {'sucesso': True, 'mensagens': []}
+        
+        # Template PDF
+        if not self.template_pdf_gerado:
+            try:
+                pdf_path = self.gerar_template_pdf()
+                resultado['mensagens'].append(f"Template PDF gerado com sucesso: {pdf_path}")
+            except Exception as e:
+                resultado['sucesso'] = False
+                resultado['mensagens'].append(f"Falha ao gerar template PDF: {str(e)}")
+        
+        # Template Email
+        if not self.template_email_enviado and self.template_pdf_gerado:
+            # Procurar pelo arquivo PDF gerado anteriormente
+            import glob
+            possiveis_pdfs = glob.glob(f"{settings.MEDIA_ROOT}/templates/*{self.codigo_projeto}*.pdf")
+            if possiveis_pdfs:
+                pdf_path = possiveis_pdfs[0]
+                if self.enviar_template_email(pdf_path):
+                    resultado['mensagens'].append(f"Email com template enviado com sucesso")
+                else:
+                    resultado['sucesso'] = False
+                    resultado['mensagens'].append(f"Falha ao enviar email com template")
+            else:
+                resultado['sucesso'] = False
+                resultado['mensagens'].append(f"Arquivo PDF do template não encontrado para reenvio")
+        
+        # Projeto PDF e email
+        if not self.projeto_pdf_gerado or not self.projeto_email_enviado:
+            if self.enviar_pdf_projeto():
+                resultado['mensagens'].append(f"PDF do projeto gerado e enviado com sucesso")
+            else:
+                resultado['sucesso'] = False
+                resultado['mensagens'].append(f"Falha ao gerar/enviar PDF do projeto")
+        
+        return resultado
 
 # FIM PROJETO
 

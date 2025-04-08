@@ -893,25 +893,60 @@ class PlacaMap384to384Admin(EmpresaAdminMixin, admin.ModelAdmin):
 #-----------------------------------------------
 # Poços
 
-class Poco96Admin(EmpresaAdminMixin, admin.ModelAdmin):
-    list_display = ('empresa', 'empresa__nome', 'placa', 'posicao', 'amostra',)
-    list_display_links=['posicao']
+
+class Poco96Resource(resources.ModelResource):
+    empresa_codigo = fields.Field(column_name='Código da Empresa', attribute='amostra__projeto__empresa__codigo')
+    empresa_nome = fields.Field(column_name='Nome da Empresa', attribute='amostra__projeto__empresa__nome')
+    projeto_codigo = fields.Field(column_name='Codigo do Projeto', attribute='amostra__projeto__codigo_projeto')
+    projeto_nome = fields.Field(column_name='Nome do Projeto', attribute='amostra__projeto__nome_projeto_cliente')
+    placa_codigo = fields.Field(column_name='Código da Placa de 96', attribute='placa__codigo_placa')
+    amostra_codigo = fields.Field(column_name='Código da Amostra', attribute='amostra__codigo_amostra')
+
+    class Meta:
+        model = Poco96
+        fields = ('id', 'empresa_codigo', 'empresa_nome', 'projeto_codigo', 'projeto_nome', 'placa_codigo', 'amostra_codigo', 'posicao')
+
+class Poco384Resource(resources.ModelResource):
+    empresa_codigo = fields.Field(column_name='Código da Empresa', attribute='amostra__projeto__empresa__codigo')
+    empresa_nome = fields.Field(column_name='Nome da Empresa', attribute='amostra__projeto__empresa__nome')
+    projeto_codigo = fields.Field(column_name='Codigo do Projeto', attribute='amostra__projeto__codigo_projeto')
+    projeto_nome = fields.Field(column_name='Nome do Projeto', attribute='amostra__projeto__nome_projeto_cliente')
+    placa_codigo = fields.Field(column_name='Código da Placa de 384', attribute='placa__codigo_placa')
+    amostra_codigo = fields.Field(column_name='Código da Amostra', attribute='amostra__codigo_amostra')
+
+    class Meta:
+        model = Poco384
+        fields = ('id', 'empresa_codigo', 'empresa_nome', 'projeto_codigo', 'projeto_nome', 'placa_codigo', 'amostra_codigo', 'posicao')
+
+# Modifique as classes Admin existentes
+
+class Poco96Admin(EmpresaAdminMixin, ImportExportModelAdmin):
+    resource_class = Poco96Resource
+    list_display = ('empresa', 'empresa__nome', 'amostra__projeto__codigo_projeto', 'amostra__projeto__nome_projeto_cliente', 'placa', 'posicao', 'amostra')
+    list_display_links = ['posicao']
     list_filter = (EmpresaFilter, ProjetoFilterPoco, PlacaFilterPoco)
     search_fields = ('placa__codigo_placa', 'posicao', 'amostra__codigo_amostra')
     autocomplete_fields = ['placa', 'amostra']
     placa_model = Placa96
+
     def get_queryset(self, request):
         return super().get_queryset(request).select_related(
             'placa', 'placa__projeto', 'empresa', 'amostra'
         )
-    
-class Poco384Admin(EmpresaAdminMixin, admin.ModelAdmin):
-    list_display = ('empresa', 'empresa__nome','placa', 'posicao', 'amostra')
-    list_display_links=['posicao']
-    list_filter = (EmpresaFilter, ProjetoFilterPoco, PlacaFilterPoco)  # Filtros aninhados
+
+class Poco384Admin(EmpresaAdminMixin, ImportExportModelAdmin):
+    resource_class = Poco384Resource
+    list_display = ('empresa', 'empresa__nome', 'amostra__projeto__codigo_projeto', 'amostra__projeto__nome_projeto_cliente', 'placa', 'posicao', 'amostra')
+    list_display_links = ['posicao']
+    list_filter = (EmpresaFilter, ProjetoFilterPoco, PlacaFilterPoco)
     search_fields = ('placa__codigo_placa', 'posicao', 'amostra__codigo_amostra')
-    raw_id_fields = ['placa', 'amostra']  # Mudando de autocomplete para raw_id
-    placa_model = Placa384  # Necessário para o PlacaFilter
+    raw_id_fields = ['placa', 'amostra']
+    placa_model = Placa384
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'placa', 'placa__projeto', 'empresa', 'amostra'
+        )
 
 class Poco1536Resource(resources.ModelResource):
     empresa_codigo = fields.Field(          column_name='Código da Empresa',        attribute='amostra__projeto__empresa__codigo'    )

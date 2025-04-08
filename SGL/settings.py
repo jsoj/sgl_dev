@@ -271,5 +271,24 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB
 # Settings para otimizar import/export
 IMPORT_EXPORT_CELERY_TASK_EXPIRES = 60  # 1 minuto
 
-#Poços de Controle
-CONTROL_WELL_POSITIONS = ['A01', 'B01', 'C01', 'D01']
+
+
+# Configurações de Email SMTP
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'localhost'
+EMAIL_PORT = 25
+EMAIL_HOST_USER = ''
+EMAIL_HOST_PASSWORD = ''
+EMAIL_USE_TLS = False
+EMAIL_USE_SSL = False
+SERVER_EMAIL = 'noreply@jsoj.site'
+DEFAULT_FROM_EMAIL = 'Agromarkers Template <noreply@jsoj.site>'
+
+# Adicione estas configurações ara email
+EMAIL_TIMEOUT = 60  # tempo limite em segundos
+EMAIL_SUBJECT_PREFIX = '[Agromarkers] '  # prefixo para assuntos de emails
+EMAIL_DEBUG = True  # ativar logs detalhados de email
+
+CONTROL_WELL_POSITIONS = ['A01', 'B01', 'C01', 'D01','E01','F01']
+
