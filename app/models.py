@@ -531,7 +531,7 @@ class Projeto(EmpresaMixin, models.Model):
         try:
             with transaction.atomic():
                 # Calcula número de placas necessárias (96 poços por placa)
-                num_plates = -(-self.quantidade_amostras // 92)  # 92 poços úteis por placa
+                num_plates = -(-self.quantidade_amostras // 90)  # 90 poços úteis por placa
                 print(f"Número de placas necessárias: {num_plates}")
                 
                 # Cria a amostra de controle NTC

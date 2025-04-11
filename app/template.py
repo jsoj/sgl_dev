@@ -61,7 +61,7 @@ class PlateLayoutPDF:
 
     def calculate_plates_needed(self):
         """Calcula número de placas necessárias baseado na quantidade de amostras"""
-        amostras_por_placa = 92  # 96 poços - 4 controles
+        amostras_por_placa = 90  # 96 poços - 4 controles
         return -(-self.projeto.quantidade_amostras // amostras_por_placa)  # Arredonda para cima
 
     def calculate_well_position(self, well_number):
@@ -221,7 +221,7 @@ class PlateLayoutPDF:
         Desenha os poços individuais com seus números
         """
         self.c.setFont("Helvetica", 6)
-        amostras_por_placa = 92
+        amostras_por_placa = 90
         amostra_inicial = ((plate_number - 1) * amostras_por_placa) + 1
         sample_number = amostra_inicial
 
