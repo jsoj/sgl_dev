@@ -1,42 +1,36 @@
-<div class="mt-4">
-    {% if sucesso %}
-        <div class="alert alert-success">
-            <h5><i class="bi bi-check-circle-fill me-2"></i>Placa 384 Criada com Sucesso!</h5>
-            <p>
-                Uma nova placa 384 com código <strong>{{ placa_384.codigo_placa }}</strong> foi criada
-                para o projeto <strong>{{ placa_384.projeto.codigo_projeto }}</strong>.
-            </p>
-            <hr>
-            <h6>Placas 96 transferidas:</h6>
-            <ul>
-                {% for placa in placas_96 %}
-                    <li>{{ placa.codigo_placa }}</li>
-                {% endfor %}
-            </ul>
-            <div class="mt-3">
-                <a href="{% url 'detalhe_placa_384' placa_384.id %}" class="btn btn-primary">
-                    Ver Detalhes da Placa
-                </a>
-                <button 
-                    class="btn btn-outline-secondary" 
-                    hx-get="{% url 'carregar_projetos_por_empresa' %}?empresa={{ placa_384.empresa.id }}"
-                    hx-target="#projetos-container"
-                    hx-indicator="#loading-indicator">
-                    Criar Nova Placa
-                </button>
+<div class="card mt-4">
+    <div class="card-header bg-{{ sucesso|yesno:'success,danger' }} text-white">
+        <h5 class="mb-0">
+            {% if sucesso %}
+                <i class="bi bi-check-circle"></i> Placas 384 Criadas com Sucesso
+            {% else %}
+                <i class="bi bi-x-circle"></i> Erro na Criação das Placas
+            {% endif %}
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if sucesso %}
+            <div class="alert alert-success">
+                <p><strong>Resumo da Operação:</strong></p>
+                <ul>
+                    {% for placa_384 in placas_384_criadas %}
+                        <li>
+                            Placa {{ placa_384.codigo_placa }} criada com sucesso.
+                            <ul>
+                                {% for placa_96 in placa_384.get_placas_96_origem %}
+                                    <li>Utilizando placa 96: {{ placa_96.codigo_placa }}</li>
+                                {% endfor %}
+                            </ul>
+                        </li>
+                    {% endfor %}
+                </ul>
+                <p>Total de placas 96 processadas: {{ placas_96_processadas }}</p>
             </div>
-        </div>
-    {% else %}
-        <div class="alert alert-danger">
-            <h5><i class="bi bi-exclamation-triangle-fill me-2"></i>Erro ao Criar Placa 384</h5>
-            <p>{{ mensagem }}</p>
-            <div class="mt-3">
-                <button 
-                    class="btn btn-outline-secondary" 
-                    onclick="window.history.back()">
-                    Voltar
-                </button>
+        {% else %}
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i>
+                {{ mensagem }}
             </div>
-        </div>
-    {% endif %}
+        {% endif %}
+    </div>
 </div>

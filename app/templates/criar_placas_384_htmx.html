@@ -6,6 +6,9 @@
 <div class="container">
     <h1 class="mb-4">Criar Placas 384</h1>
 
+    <!-- Adicionar o token CSRF aqui -->
+    {% csrf_token %}
+
     <div class="card">
         <div class="card-header bg-primary text-white">
             <h5 class="mb-0">Selecione a empresa e o projeto</h5>
@@ -80,87 +83,51 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-
-    function atualizarContadorECheckboxes(containerElement) {
-        if (!containerElement) {
-            console.warn('atualizarContadorECheckboxes called without a valid container element.');
-            return;
-        }
-        const plateListContainer = containerElement.querySelector('#placas-96-container');
-        if (!plateListContainer) {
-            return;
-        }
-
-        const selecionadas = plateListContainer.querySelectorAll('.placa-checkbox:checked').length;
-        const total = plateListContainer.querySelectorAll('.placa-checkbox').length;
-        const containerId = plateListContainer.id || 'placas-96-container';
-        console.log(`Counter update [${containerId}]: ${selecionadas}/${total} selected`);
-
-        const contador = plateListContainer.querySelector('#placas-selecionadas-contador');
+    // Função para atualizar o contador e o estado do botão
+    function atualizarContador() {
+        const container = document.getElementById('placas-96-container');
+        if (!container) return;
+        
+        const checkboxes = container.querySelectorAll('.placa-checkbox:checked');
+        const contador = document.getElementById('placas-selecionadas-contador');
+        const btnCriar = document.getElementById('btn-criar-placas');
+        const total = checkboxes.length;
+        
         if (contador) {
-            contador.textContent = `${selecionadas} placa${selecionadas !== 1 ? 's' : ''} selecionada${selecionadas !== 1 ? 's' : ''}`;
-        } else {
-            console.warn(`#placas-selecionadas-contador not found within ${containerId}`);
+            contador.textContent = `${total} placa${total !== 1 ? 's' : ''} selecionada${total !== 1 ? 's' : ''}`;
         }
-
-        const selecionarTodas = plateListContainer.querySelector('#selecionar-todas-placas');
-        if (selecionarTodas) {
-            if (total === 0) {
-                selecionarTodas.checked = false;
-                selecionarTodas.indeterminate = false;
-                selecionarTodas.disabled = true;
-            } else {
-                selecionarTodas.disabled = false;
-                selecionarTodas.checked = selecionadas === total;
-                selecionarTodas.indeterminate = selecionadas > 0 && selecionadas < total;
-            }
-        } else {
-            console.warn(`#selecionar-todas-placas not found within ${containerId}`);
+        
+        if (btnCriar) {
+            // Habilita o botão quando pelo menos uma placa está selecionada
+            btnCriar.disabled = total === 0;
         }
     }
 
-    const placasContainer = document.getElementById('placas-container');
-
-    if (placasContainer) {
-        placasContainer.addEventListener('change', function(event) {
-            const plateListContainer = event.currentTarget.querySelector('#placas-96-container');
-            if (!plateListContainer) return;
-
-            if (event.target.matches('#selecionar-todas-placas')) {
-                console.log('Select all changed (delegated):', event.target.checked);
-                const isChecked = event.target.checked;
-                const checkboxes = plateListContainer.querySelectorAll('.placa-checkbox');
-                checkboxes.forEach(cb => {
-                    cb.checked = isChecked;
-                });
-                atualizarContadorECheckboxes(placasContainer);
-            } else if (event.target.matches('.placa-checkbox')) {
-                console.log('Individual checkbox changed (delegated)');
-                atualizarContadorECheckboxes(placasContainer);
-            }
-        });
-    } else {
-        console.error('Container #placas-container not found!');
-    }
-
-    document.body.addEventListener('htmx:afterSwap', function(event) {
-        if (event.detail.target.id === 'placas-container') {
-            console.log('HTMX swap finished into #placas-container. Updating checkbox state.');
-            atualizarContadorECheckboxes(event.detail.target);
-        } else if (event.detail.target.id === 'projetos-container') {
-            console.log('HTMX swap finished into #projetos-container. Clearing plate container state (if needed).');
-            const currentPlacasContainer = document.getElementById('placas-container');
-            if (currentPlacasContainer) {
-                atualizarContadorECheckboxes(currentPlacasContainer);
-            }
+    // Delegação de eventos para os checkboxes individuais
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('placa-checkbox') || e.target.id === 'selecionar-todas-placas') {
+            atualizarContador();
         }
     });
 
-    const initialPlacasContainer = document.getElementById('placas-container');
-    if (initialPlacasContainer) {
-        atualizarContadorECheckboxes(initialPlacasContainer);
-    }
+    // Handler para "Selecionar Todas"
+    document.addEventListener('change', function(e) {
+        if (e.target.id === 'selecionar-todas-placas') {
+            const container = document.getElementById('placas-96-container');
+            const checkboxes = container.querySelectorAll('.placa-checkbox');
+            checkboxes.forEach(cb => cb.checked = e.target.checked);
+            atualizarContador();
+        }
+    });
 
+    // Configurar CSRF token para todas as requisições HTMX
+    document.body.addEventListener('htmx:configRequest', function(evt) {
+        const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+        evt.detail.headers['X-CSRFToken'] = csrfToken;
+    });
+
+    // Inicializar contador
+    atualizarContador();
 });
 </script>
 {% endblock %}

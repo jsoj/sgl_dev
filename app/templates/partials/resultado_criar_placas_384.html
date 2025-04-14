@@ -3,40 +3,45 @@
         <h5 class="mb-0">Resultado da criação de placas 384</h5>
     </div>
     <div class="card-body">
-        <div class="alert alert-success">
-            <h5>Operação concluída com sucesso!</h5>
-            <p>Foram processadas {{ placas_96_processadas }} placas 96.</p>
-            <p>Foram criadas {{ placas_384_criadas|length }} novas placas 384.</p>
+        <div class="alert {% if sucesso %}alert-success{% else %}alert-danger{% endif %}">
+            {% if sucesso %}
+                <h4 class="alert-heading">Sucesso!</h4>
+                <p>Placas 384 criadas: {{ placas_384_criadas|length }}</p>
+                <p>Total de placas 96 processadas: {{ placas_96_processadas }}</p>
+                
+                <div class="mt-4">
+                    <h5>Placas 384 criadas:</h5>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Código da Placa</th>
+                                    <th>Data de Criação</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for placa in placas_384_criadas %}
+                                <tr>
+                                    <td>{{ placa.codigo_placa }}</td>
+                                    <td>{{ placa.data_criacao|date:"d/m/Y H:i" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            {% else %}
+                <h4 class="alert-heading">Erro!</h4>
+                <p>{{ mensagem }}</p>
+            {% endif %}
         </div>
         
-        {% if placas_384_criadas %}
-            <h6 class="mt-4">Placas 384 criadas:</h6>
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Código</th>
-                        <th>Projeto</th>
-                        <th>Criado em</th>
-                        <th>Criado por</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for placa in placas_384_criadas %}
-                        <tr>
-                            <td>{{ placa.codigo_placa }}</td>
-                            <td>{{ placa.projeto.codigo_projeto }}</td>
-                            <td>{{ placa.criado_em|date:"d/m/Y H:i" }}</td>
-                            <td>{{ placa.created_by.username }}</td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            
-            <a href="{% url 'criar_placas_384_htmx' %}" class="btn btn-primary mt-3">
+        <div class="mt-3">
+            <button class="btn btn-primary" 
+                    hx-get="{% url 'carregar_placas_por_projeto' %}?projeto={{ projeto.id }}"
+                    hx-target="#placas-container">
                 Criar mais placas 384
-            </a>
-        {% else %}
-            <p class="text-warning">Não foi possível criar nenhuma placa 384. Verifique se selecionou um número adequado de placas 96 (múltiplos de 4).</p>
-        {% endif %}
+            </button>
+        </div>
     </div>
 </div>

@@ -53,14 +53,13 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',  # Certifique-se que esta linha existe
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # 'django_csp.middleware.CSPMiddleware',  # Adicione esta linha se não existir
 ]
 
-CSRF_COOKIE_SECURE = False  # Temporariamente para testes
+CSRF_COOKIE_SECURE = False  # Em produção, deve ser True
 ROOT_URLCONF = 'SGL.urls'
 
 # # CSP Settings
