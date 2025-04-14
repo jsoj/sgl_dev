@@ -28,6 +28,11 @@ Gerencias os aspectos operacionais de uma laboratório de bioteconologia, atrav�
 * Lista de projetos. 
 * Tela de criação de placas 384 em lote
 
+### Release: V.1.0.6 (Em desenvolvimento)
+* Carga automática de resultados
+  - Implementação de importação automática do Pherastar 1536
+  - Implementação de importação automática do Pherastar 384
+  - Implementação de importação automática do QuantumStudio 384
 
 
 ## Tecnologias
