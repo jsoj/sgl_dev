@@ -974,33 +974,52 @@ class Poco1536Admin(EmpresaAdminMixin, ImportExportModelAdmin):
 #-----------------------------------------------
 # Cadastros
 
-class TecnologiaAdmin(admin.ModelAdmin):
-    list_display = ('nome', 'caracteristica', 'vencimento_patente', 'data_cadastro')
+class ModeloBaseAdmin(admin.ModelAdmin):
+    """Classe base para administração de modelos com campo is_active"""
+    list_display = ('nome', 'is_active')
+    list_filter = ('is_active',)
     search_fields = ('nome',)
+    actions = ['ativar', 'desativar']
+    
+    def ativar(self, request, queryset):
+        queryset.update(is_active=True)
+        self.message_user(request, f"{queryset.count()} registros ativados com sucesso.")
+    ativar.short_description = "Ativar registros selecionados"
+    
+    def desativar(self, request, queryset):
+        queryset.update(is_active=False)
+        self.message_user(request, f"{queryset.count()} registros desativados com sucesso.")
+    desativar.short_description = "Desativar registros selecionados"
 
-class CultivoAdmin(admin.ModelAdmin):
-    list_display = ('nome', 'nome_cientifico', 'data_cadastro')
-    search_fields = ('nome',)
+@admin.register(Empresa)
+class EmpresaAdmin(ModeloBaseAdmin):
+    pass
 
-class MarcadorTraitAdmin(admin.ModelAdmin):
-    list_display = ('nome', 'cultivo')
-    search_fields = ('nome',)
+@admin.register(Cultivo)
+class CultivoAdmin(ModeloBaseAdmin):
+    pass
 
-class MarcadorCustomizadoAdmin(admin.ModelAdmin):
-    list_display = ('nome', 'cultivo')
-    search_fields = ('nome',)
+@admin.register(Tecnologia)
+class TecnologiaAdmin(ModeloBaseAdmin):
+    pass
 
-class StatusAdmin(admin.ModelAdmin):
-    list_display = ('nome',)
-    search_fields = ('nome',)
+@admin.register(MarcadorTrait)
+class MarcadorTraitAdmin(ModeloBaseAdmin):
+    pass
 
-class ProtocoloAdmin(admin.ModelAdmin):
-    list_display = ('nome',)
-    search_fields = ('nome',)
+@admin.register(MarcadorCustomizado)
+class MarcadorCustomizadoAdmin(ModeloBaseAdmin):
+    pass
 
-class EtapaAdmin(admin.ModelAdmin):
-    list_display = ('nome',)
-    search_fields = ('nome',)
+@admin.register(Status)
+class StatusAdmin(ModeloBaseAdmin):
+    pass
+
+@admin.register(Etapa)
+class EtapaAdmin(ModeloBaseAdmin):
+    pass
+
+# Manter sua classe admin existente para Projeto se já existir
 
 #-----------------------------------------------
 # Resultados 

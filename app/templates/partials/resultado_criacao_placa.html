@@ -1,0 +1,42 @@
+<div class="mt-4">
+    {% if sucesso %}
+        <div class="alert alert-success">
+            <h5><i class="bi bi-check-circle-fill me-2"></i>Placa 384 Criada com Sucesso!</h5>
+            <p>
+                Uma nova placa 384 com código <strong>{{ placa_384.codigo_placa }}</strong> foi criada
+                para o projeto <strong>{{ placa_384.projeto.codigo_projeto }}</strong>.
+            </p>
+            <hr>
+            <h6>Placas 96 transferidas:</h6>
+            <ul>
+                {% for placa in placas_96 %}
+                    <li>{{ placa.codigo_placa }}</li>
+                {% endfor %}
+            </ul>
+            <div class="mt-3">
+                <a href="{% url 'detalhe_placa_384' placa_384.id %}" class="btn btn-primary">
+                    Ver Detalhes da Placa
+                </a>
+                <button 
+                    class="btn btn-outline-secondary" 
+                    hx-get="{% url 'carregar_projetos_por_empresa' %}?empresa={{ placa_384.empresa.id }}"
+                    hx-target="#projetos-container"
+                    hx-indicator="#loading-indicator">
+                    Criar Nova Placa
+                </button>
+            </div>
+        </div>
+    {% else %}
+        <div class="alert alert-danger">
+            <h5><i class="bi bi-exclamation-triangle-fill me-2"></i>Erro ao Criar Placa 384</h5>
+            <p>{{ mensagem }}</p>
+            <div class="mt-3">
+                <button 
+                    class="btn btn-outline-secondary" 
+                    onclick="window.history.back()">
+                    Voltar
+                </button>
+            </div>
+        </div>
+    {% endif %}
+</div>

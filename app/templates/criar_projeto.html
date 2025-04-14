@@ -1,0 +1,706 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Criar Projeto{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-dark text-white py-3">
+        <h4 class="mb-0"><i class="bi bi-file-earmark-plus me-2"></i>Criar Novo Projeto</h4>
+    </div>
+    <div class="card-body p-4">
+        {% if messages %}
+        <div class="alert-container mb-4">
+            {% for message in messages %}
+                <div class="alert {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'success' %}alert-success{% elif message.tags == 'warning' %}alert-warning{% else %}alert-info{% endif %} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        
+        {% if form_error %}
+        <div class="alert alert-danger mb-4" role="alert">
+            <h5 class="alert-heading">Erro ao processar formulário</h5>
+            <p class="mb-0">{{ form_error }}</p>
+        </div>
+        {% endif %}
+
+        <form method="post" id="formProjeto" hx-post="{% url 'criar_projeto' %}" hx-swap="outerHTML" 
+              hx-indicator="#loadingIndicator">
+            {% csrf_token %}
+            
+            <div class="position-fixed top-0 start-50 translate-middle-x p-3 mt-5 text-center" id="loadingIndicator" style="display:none;">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-1">Processando...</p>
+            </div>
+            
+            <div class="row g-4">
+                <!-- Seção 1: Informações básicas -->
+                <div class="col-12">
+                    <div class="section-header mb-2">
+                        <h5 class="text-secondary">Informações básicas</h5>
+                        <hr class="mt-1">
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6 col-lg-3">
+                            <label for="empresa" class="form-label fw-medium text-dark">Empresa</label>
+                            <select name="empresa" id="empresa" class="form-select {% if field_errors.empresa %}is-invalid{% endif %}" required>
+                                <option value="" class="text-muted">Selecione uma empresa</option>
+                                {% for empresa in empresas %}
+                                    <option value="{{ empresa.id }}" {% if empresa.id|stringformat:"s" == request.POST.empresa %}selected{% endif %}>
+                                        {{ empresa.nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            {% if field_errors.empresa %}
+                                <div class="invalid-feedback">{{ field_errors.empresa.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <label for="codigo_projeto" class="form-label fw-medium text-dark">Código do Projeto</label>
+                            <input type="text" name="codigo_projeto" id="codigo_projeto" 
+                                   class="form-control {% if field_errors.codigo_projeto %}is-invalid{% endif %}" required
+                                   value="{{ request.POST.codigo_projeto|default:'' }}"
+                                   placeholder="Código único do projeto">
+                            {% if field_errors.codigo_projeto %}
+                                <div class="invalid-feedback">{{ field_errors.codigo_projeto.0 }}</div>
+                            {% endif %}
+                            <!-- O alerta para projeto existente será inserido aqui via JavaScript -->
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <label for="nome_projeto_cliente" class="form-label fw-medium text-dark">Nome do Projeto</label>
+                            <input type="text" name="nome_projeto_cliente" id="nome_projeto_cliente" 
+                                   class="form-control {% if field_errors.nome_projeto_cliente %}is-invalid{% endif %}"
+                                   value="{{ request.POST.nome_projeto_cliente|default:'' }}"
+                                   placeholder="Nome de guerra do projeto">
+                            {% if field_errors.nome_projeto_cliente %}
+                                <div class="invalid-feedback">{{ field_errors.nome_projeto_cliente.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <label for="responsavel" class="form-label fw-medium text-dark">Email Responsável</label>
+                            <input type="email" name="responsavel" id="responsavel" 
+                                   class="form-control {% if field_errors.responsavel %}is-invalid{% endif %}" required
+                                   value="{{ request.POST.responsavel|default:'' }}"
+                                   placeholder="Email do responsável">
+                            {% if field_errors.responsavel %}
+                                <div class="invalid-feedback">{{ field_errors.responsavel.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Seção 2: Informações da amostra -->
+                <div class="col-12">
+                    <div class="section-header mb-2 mt-2">
+                        <h5 class="text-secondary">Informações da amostra</h5>
+                        <hr class="mt-1">
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6 col-lg-3">
+                            <label for="quantidade_amostras" class="form-label fw-medium text-dark">Quantidade de Amostras</label>
+                            <input type="number" name="quantidade_amostras" id="quantidade_amostras" 
+                                   class="form-control {% if field_errors.quantidade_amostras %}is-invalid{% endif %}" required
+                                   value="{{ request.POST.quantidade_amostras|default:'' }}"
+                                   min="1" placeholder="Quantidade">
+                            {% if field_errors.quantidade_amostras %}
+                                <div class="invalid-feedback">{{ field_errors.quantidade_amostras.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <label for="numero_placas_96" class="form-label fw-medium text-dark">Número de Placas 96</label>
+                            <input type="number" name="numero_placas_96" id="numero_placas_96" 
+                                   class="form-control {% if field_errors.numero_placas_96 %}is-invalid{% endif %}" readonly
+                                   value="{{ request.POST.numero_placas_96|default:'' }}"
+                                   min="1" placeholder="Calculado automaticamente">
+                            {% if field_errors.numero_placas_96 %}
+                                <div class="invalid-feedback">{{ field_errors.numero_placas_96.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <label for="placas_inicial" class="form-label fw-medium text-dark">Placa Inicial</label>
+                            <input type="number" name="placas_inicial" id="placas_inicial" 
+                                   class="form-control {% if field_errors.placas_inicial %}is-invalid{% endif %}"
+                                   value="{{ request.POST.placas_inicial|default:'' }}"
+                                   min="1" placeholder="Exemplo: 1">
+                            {% if field_errors.placas_inicial %}
+                                <div class="invalid-feedback">{{ field_errors.placas_inicial.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <label for="placas_final" class="form-label fw-medium text-dark">Placa Final</label>
+                            <input type="number" name="placas_final" id="placas_final" 
+                                   class="form-control {% if field_errors.placas_final %}is-invalid{% endif %}"
+                                   value="{{ request.POST.placas_final|default:'' }}"
+                                   min="1" placeholder="Exemplo: 96">
+                            {% if field_errors.placas_final %}
+                                <div class="invalid-feedback">{{ field_errors.placas_final.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 col-lg-3">
+                            <label for="cultivo" class="form-label fw-medium text-dark">Cultivo</label>
+                            <select name="cultivo" id="cultivo" 
+                                   class="form-select {% if field_errors.cultivo %}is-invalid{% endif %}" required>
+                                <option value="" class="text-muted">Selecione um cultivo</option>
+                                {% for cultivo in cultivos %}
+                                    <option value="{{ cultivo.id }}" {% if cultivo.id|stringformat:"s" == request.POST.cultivo %}selected{% endif %}>
+                                        {{ cultivo.nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            {% if field_errors.cultivo %}
+                                <div class="invalid-feedback">{{ field_errors.cultivo.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <label for="origem_amostra" class="form-label fw-medium text-dark">Origem da Amostra</label>
+                            <select name="origem_amostra" id="origem_amostra" 
+                                   class="form-select {% if field_errors.origem_amostra %}is-invalid{% endif %}">
+                                <option value="FOLHA" {% if request.POST.origem_amostra == "FOLHA" %}selected{% endif %}>FOLHA</option>
+                                <option value="SEMENTE" {% if request.POST.origem_amostra == "SEMENTE" %}selected{% endif %}>SEMENTE</option>
+                            </select>
+                            {% if field_errors.origem_amostra %}
+                                <div class="invalid-feedback">{{ field_errors.origem_amostra.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <label for="tipo_amostra" class="form-label fw-medium text-dark">Tipo de Amostra</label>
+                            <select name="tipo_amostra" id="tipo_amostra" 
+                                   class="form-select {% if field_errors.tipo_amostra %}is-invalid{% endif %}">
+                                <option value="PLANTA 02 DISCOS" {% if request.POST.tipo_amostra == "PLANTA 02 DISCOS" %}selected{% endif %}>PLANTA 02 DISCOS</option>
+                                <option value="PLANTA 04 DISCOS" {% if request.POST.tipo_amostra == "PLANTA 04 DISCOS" %}selected{% endif %}>PLANTA 04 DISCOS</option>
+                                <option value="BULK 08 DISCOS" {% if request.POST.tipo_amostra == "BULK 08 DISCOS" %}selected{% endif %}>BULK 08 DISCOS</option>
+                            </select>
+                            {% if field_errors.tipo_amostra %}
+                                <div class="invalid-feedback">{{ field_errors.tipo_amostra.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <label for="status" class="form-label fw-medium text-dark">Status</label>
+                            <select name="status" id="status" 
+                                   class="form-select {% if field_errors.status %}is-invalid{% endif %}" required>
+                                <option value="" class="text-muted">Selecione um status</option>
+                                {% for status in statuses %}
+                                    <option value="{{ status.id }}" {% if status.id|stringformat:"s" == request.POST.status %}selected{% endif %}>
+                                        {{ status.nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            {% if field_errors.status %}
+                                <div class="invalid-feedback">{{ field_errors.status.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Seção 3: Tecnologias -->
+                <div class="col-12">
+                    <div class="section-header mb-2 mt-2">
+                        <h5 class="text-secondary">Tecnologias</h5>
+                        <hr class="mt-1">
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6 col-lg-3">
+                            <label for="tecnologia_parental1" class="form-label fw-medium text-dark">Tecnologia Parental 1</label>
+                            <select name="tecnologia_parental1" id="tecnologia_parental1" 
+                                    class="form-select {% if field_errors.tecnologia_parental1 %}is-invalid{% endif %}">
+                                <option value="" class="text-muted">Selecione uma tecnologia</option>
+                                {% for tecnologia in tecnologias %}
+                                    <option value="{{ tecnologia.id }}" {% if tecnologia.id|stringformat:"s" == request.POST.tecnologia_parental1 %}selected{% endif %}>
+                                        {{ tecnologia.nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            {% if field_errors.tecnologia_parental1 %}
+                                <div class="invalid-feedback">{{ field_errors.tecnologia_parental1.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <label for="tecnologia_parental2" class="form-label fw-medium text-dark">Tecnologia Parental 2</label>
+                            <select name="tecnologia_parental2" id="tecnologia_parental2" 
+                                    class="form-select {% if field_errors.tecnologia_parental2 %}is-invalid{% endif %}">
+                                <option value="" class="text-muted">Selecione uma tecnologia</option>
+                                {% for tecnologia in tecnologias %}
+                                    <option value="{{ tecnologia.id }}" {% if tecnologia.id|stringformat:"s" == request.POST.tecnologia_parental2 %}selected{% endif %}>
+                                        {{ tecnologia.nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            {% if field_errors.tecnologia_parental2 %}
+                                <div class="invalid-feedback">{{ field_errors.tecnologia_parental2.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <label for="tecnologia_target" class="form-label fw-medium text-dark">Tecnologia Target</label>
+                            <select name="tecnologia_target" id="tecnologia_target" 
+                                    class="form-select {% if field_errors.tecnologia_target %}is-invalid{% endif %}">
+                                <option value="" class="text-muted">Selecione uma tecnologia</option>
+                                <!-- Opções serão preenchidas via JavaScript -->
+                            </select>
+                            {% if field_errors.tecnologia_target %}
+                                <div class="invalid-feedback">{{ field_errors.tecnologia_target.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <label for="proporcao" class="form-label fw-medium text-dark">Proporção (%)</label>
+                            <input type="number" name="proporcao" id="proporcao" 
+                                   class="form-control {% if field_errors.proporcao %}is-invalid{% endif %}"
+                                   value="{{ request.POST.proporcao|default:'' }}"
+                                   min="0" max="100" step="0.01" placeholder="Exemplo: 18,65%">
+                            {% if field_errors.proporcao %}
+                                <div class="invalid-feedback">{{ field_errors.proporcao.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="marcador_trait" class="form-label fw-medium text-dark">Marcador Trait</label>
+                            <select name="marcador_trait" id="marcador_trait" 
+                                   class="form-select select2 {% if field_errors.marcador_trait %}is-invalid{% endif %}" multiple="multiple">
+                                {% for marcador in marcador_traits %}
+                                    <option value="{{ marcador.id }}">{{ marcador.nome }}</option>
+                                {% endfor %}
+                            </select>
+                            {% if field_errors.marcador_trait %}
+                                <div class="invalid-feedback">{{ field_errors.marcador_trait.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="marcador_customizado" class="form-label fw-medium text-dark">Marcador Customizado</label>
+                            <select name="marcador_customizado" id="marcador_customizado" 
+                                   class="form-select select2 {% if field_errors.marcador_customizado %}is-invalid{% endif %}" multiple="multiple">
+                                {% for marcador in marcador_customizados %}
+                                    <option value="{{ marcador.id }}">{{ marcador.nome }}</option>
+                                {% endfor %}
+                            </select>
+                            {% if field_errors.marcador_customizado %}
+                                <div class="invalid-feedback">{{ field_errors.marcador_customizado.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 col-lg-3">
+                            <label for="quantidade_traits" class="form-label fw-medium text-dark">Qtd. Traits</label>
+                            <input type="number" name="quantidade_traits" id="quantidade_traits" 
+                                   class="form-control {% if field_errors.quantidade_traits %}is-invalid{% endif %}" readonly
+                                   value="{{ request.POST.quantidade_traits|default:'' }}"
+                                   min="0" placeholder="Calculado automaticamente">
+                            {% if field_errors.quantidade_traits %}
+                                <div class="invalid-feedback">{{ field_errors.quantidade_traits.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <label for="quantidade_marcador_customizado" class="form-label fw-medium text-dark">Qtd. Marcadores Custom</label>
+                            <input type="number" name="quantidade_marcador_customizado" id="quantidade_marcador_customizado" 
+                                   class="form-control {% if field_errors.quantidade_marcador_customizado %}is-invalid{% endif %}" readonly
+                                   value="{{ request.POST.quantidade_marcador_customizado|default:'' }}"
+                                   min="0" placeholder="Calculado automaticamente">
+                            {% if field_errors.quantidade_marcador_customizado %}
+                                <div class="invalid-feedback">{{ field_errors.quantidade_marcador_customizado.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Seção 4: Informações Complementares -->
+                <div class="col-12">
+                    <div class="section-header mb-2 mt-2">
+                        <h5 class="text-secondary">Informações Complementares</h5>
+                        <hr class="mt-1">
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6 col-lg-3">
+                            <label for="etapa" class="form-label fw-medium text-dark">Etapa</label>
+                            <select name="etapa" id="etapa" 
+                                   class="form-select {% if field_errors.etapa %}is-invalid{% endif %}">
+                                <option value="" class="text-muted">Selecione uma etapa</option>
+                                {% for etapa in etapas %}
+                                    <option value="{{ etapa.id }}" {% if etapa.id|stringformat:"s" == request.POST.etapa %}selected{% endif %}>
+                                        {{ etapa.nome }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            {% if field_errors.etapa %}
+                                <div class="invalid-feedback">{{ field_errors.etapa.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <label for="prioridade" class="form-label fw-medium text-dark">Prioridade (0-9)</label>
+                            <input type="number" name="prioridade" id="prioridade" 
+                                   class="form-control {% if field_errors.prioridade %}is-invalid{% endif %}"
+                                   value="{{ request.POST.prioridade|default:'0' }}"
+                                   min="0" max="9" placeholder="0 (baixa) a 9 (alta)">
+                            {% if field_errors.prioridade %}
+                                <div class="invalid-feedback">{{ field_errors.prioridade.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <label for="codigo_ensaio" class="form-label fw-medium text-dark">Código Ensaio</label>
+                            <input type="text" name="codigo_ensaio" id="codigo_ensaio" 
+                                   class="form-control {% if field_errors.codigo_ensaio %}is-invalid{% endif %}"
+                                   value="{{ request.POST.codigo_ensaio|default:'' }}"
+                                   maxlength="10" placeholder="Exemplo: 51899137">
+                            {% if field_errors.codigo_ensaio %}
+                                <div class="invalid-feedback">{{ field_errors.codigo_ensaio.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <label for="setor_cliente" class="form-label fw-medium text-dark">Setor Cliente</label>
+                            <input type="text" name="setor_cliente" id="setor_cliente" 
+                                   class="form-control {% if field_errors.setor_cliente %}is-invalid{% endif %}"
+                                   value="{{ request.POST.setor_cliente|default:'' }}"
+                                   maxlength="40" placeholder="Exemplo: Nursery">
+                            {% if field_errors.setor_cliente %}
+                                <div class="invalid-feedback">{{ field_errors.setor_cliente.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 col-lg-3">
+                            <label for="local_cliente" class="form-label fw-medium text-dark">Local Cliente</label>
+                            <input type="text" name="local_cliente" id="local_cliente" 
+                                   class="form-control {% if field_errors.local_cliente %}is-invalid{% endif %}"
+                                   value="{{ request.POST.local_cliente|default:'' }}"
+                                   maxlength="40" placeholder="Exemplo: Rio Verde">
+                            {% if field_errors.local_cliente %}
+                                <div class="invalid-feedback">{{ field_errors.local_cliente.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <label for="ano_plantio_ensaio" class="form-label fw-medium text-dark">Ano Plantio</label>
+                            <input type="number" name="ano_plantio_ensaio" id="ano_plantio_ensaio" 
+                                   class="form-control {% if field_errors.ano_plantio_ensaio %}is-invalid{% endif %}"
+                                   value="{{ request.POST.ano_plantio_ensaio|default:'' }}"
+                                   min="2000" max="2100" placeholder="Exemplo: 2024">
+                            {% if field_errors.ano_plantio_ensaio %}
+                                <div class="invalid-feedback">{{ field_errors.ano_plantio_ensaio.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <label for="data_planejada_envio" class="form-label fw-medium text-dark">Data Planejada</label>
+                            <input type="date" name="data_planejada_envio" id="data_planejada_envio" 
+                                   class="form-control {% if field_errors.data_planejada_envio %}is-invalid{% endif %}"
+                                   value="{{ request.POST.data_planejada_envio|default:'' }}">
+                            {% if field_errors.data_planejada_envio %}
+                                <div class="invalid-feedback">{{ field_errors.data_planejada_envio.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <label class="form-label fw-medium text-dark">Aplicação de Herbicida</label>
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input" type="checkbox" id="herbicida" name="herbicida"
+                                       {% if request.POST.herbicida %}checked{% endif %}>
+                                <label class="form-check-label" for="herbicida">Foi aplicado herbicida</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-6 col-lg-3">
+                            <label class="form-label fw-medium text-dark">Marcador Analisado</label>
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input" type="checkbox" id="marcador_analisado" name="marcador_analisado"
+                                       {% if request.POST.marcador_analisado %}checked{% endif %}>
+                                <label class="form-check-label" for="marcador_analisado">Já foi analisado</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-3" id="resultado_anterior_container" style="display:none;">
+                            <label for="se_marcador_analisado" class="form-label fw-medium text-dark">Resultado Anterior</label>
+                            <select name="se_marcador_analisado" id="se_marcador_analisado" 
+                                   class="form-select {% if field_errors.se_marcador_analisado %}is-invalid{% endif %}">
+                                <option value="---" {% if request.POST.se_marcador_analisado == "---" %}selected{% endif %}>---</option>
+                                <option value="HOMO-HEMI" {% if request.POST.se_marcador_analisado == "HOMO-HEMI" %}selected{% endif %}>HOMO-HEMI</option>
+                                <option value="HOMO" {% if request.POST.se_marcador_analisado == "HOMO" %}selected{% endif %}>HOMO</option>
+                            </select>
+                            {% if field_errors.se_marcador_analisado %}
+                                <div class="invalid-feedback">{{ field_errors.se_marcador_analisado.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="comentarios" class="form-label fw-medium text-dark">Comentários</label>
+                            <textarea name="comentarios" id="comentarios" 
+                                     class="form-control {% if field_errors.comentarios %}is-invalid{% endif %}" rows="1"
+                                     placeholder="Observações adicionais sobre o projeto">{{ request.POST.comentarios|default:'' }}</textarea>
+                            {% if field_errors.comentarios %}
+                                <div class="invalid-feedback">{{ field_errors.comentarios.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between mt-4 pt-2 border-top">
+                <button type="button" id="voltar" class="btn btn-outline-secondary" onclick="javascript:history.back()">
+                    <i class="bi bi-arrow-left"></i> Voltar
+                </button>
+                <button type="submit" class="btn btn-dark">
+                    <i class="bi bi-save"></i> Criar Projeto
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Incluir Select2 CSS e JS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="{% static 'css/forms.css' %}" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Esconder a navbar automaticamente ao entrar no formulário
+        if (typeof toggleSidebar === 'function') {
+            toggleSidebar();
+        } else if (document.getElementById('sidebarCollapse')) {
+            document.getElementById('sidebarCollapse').click();
+        } else if (document.getElementById('sidebar')) {
+            document.getElementById('sidebar').classList.add('collapsed');
+        }
+        
+        const formProjeto = document.getElementById('formProjeto');
+        const tecnologiaParental1 = document.getElementById('tecnologia_parental1');
+        const tecnologiaParental2 = document.getElementById('tecnologia_parental2');
+        const tecnologiaTarget = document.getElementById('tecnologia_target');
+        
+        // Inicializar Select2 para os selects múltiplos
+        $('.select2').select2({
+            placeholder: 'Selecione...',
+            allowClear: true,
+            closeOnSelect: false,
+            width: '100%'
+        });
+        
+        // Calcular número de placas automaticamente
+        const qtdAmostras = document.getElementById('quantidade_amostras');
+        const numPlacas = document.getElementById('numero_placas_96');
+        
+        qtdAmostras.addEventListener('change', function() {
+            if (this.value) {
+                // Arredonda para cima divisão por 96
+                const placas = Math.ceil(parseInt(this.value) / 96);
+                numPlacas.value = placas;
+            }
+        });
+
+        // Marcador analisado controla visibilidade do campo resultado anterior
+        const marcadorAnalisado = document.getElementById('marcador_analisado');
+        const resultadoAnteriorContainer = document.getElementById('resultado_anterior_container');
+        
+        function toggleMarcadorAnalisado() {
+            if (marcadorAnalisado.checked) {
+                resultadoAnteriorContainer.style.display = 'block';
+            } else {
+                resultadoAnteriorContainer.style.display = 'none';
+            }
+        }
+        
+        marcadorAnalisado.addEventListener('change', toggleMarcadorAnalisado);
+        toggleMarcadorAnalisado(); // Inicializar estado
+
+        // Atualizar contadores de marcadores selecionados (em campos readonly)
+        $('#marcador_trait').on('change', function() {
+            const count = $(this).val() ? $(this).val().length : 0;
+            $('#quantidade_traits').val(count);
+        });
+
+        $('#marcador_customizado').on('change', function() {
+            const count = $(this).val() ? $(this).val().length : 0;
+            $('#quantidade_marcador_customizado').val(count);
+        });
+        
+        // Validar que tecnologia parental2 não pode ser igual a parental1
+        tecnologiaParental1.addEventListener('change', validateAndUpdateTecnologias);
+        tecnologiaParental2.addEventListener('change', validateAndUpdateTecnologias);
+        
+        function validateAndUpdateTecnologias() {
+            const parental1Value = tecnologiaParental1.value;
+            const parental2Value = tecnologiaParental2.value;
+            
+            // Limpar opções atuais de tecnologia target
+            tecnologiaTarget.innerHTML = '<option value="" class="text-muted">Selecione uma tecnologia</option>';
+            
+            // Re-habilitar todas as opções em parental2 primeiro
+            for (let i = 0; i < tecnologiaParental2.options.length; i++) {
+                tecnologiaParental2.options[i].disabled = false;
+            }
+            
+            // Se parental1 tem valor, desabilitar essa opção em parental2
+            if (parental1Value) {
+                for (let i = 0; i < tecnologiaParental2.options.length; i++) {
+                    if (tecnologiaParental2.options[i].value === parental1Value) {
+                        tecnologiaParental2.options[i].disabled = true;
+                    }
+                }
+                
+                // Se parental2 está selecionado igual a parental1, limpar parental2
+                if (parental1Value === parental2Value) {
+                    tecnologiaParental2.value = "";
+                }
+                
+                // Adicionar opção de parental1 para target
+                const option = document.createElement('option');
+                option.value = parental1Value;
+                option.textContent = tecnologiaParental1.options[tecnologiaParental1.selectedIndex].textContent;
+                tecnologiaTarget.appendChild(option);
+            }
+            
+            // Se parental2 tem valor, adicionar como opção para target
+            if (parental2Value) {
+                const option = document.createElement('option');
+                option.value = parental2Value;
+                option.textContent = tecnologiaParental2.options[tecnologiaParental2.selectedIndex].textContent;
+                tecnologiaTarget.appendChild(option);
+            }
+            
+            // Limpar target se não for nem parental1 nem parental2
+            const targetValue = tecnologiaTarget.value;
+            if (targetValue && targetValue !== parental1Value && targetValue !== parental2Value) {
+                tecnologiaTarget.value = "";
+            }
+        }
+        
+        // Inicializar estado no carregamento
+        validateAndUpdateTecnologias();
+        
+        // Inicializar valores dos contadores se já existirem seleções
+        if ($('#marcador_trait').val()) {
+            $('#quantidade_traits').val($('#marcador_trait').val().length);
+        }
+        
+        if ($('#marcador_customizado').val()) {
+            $('#quantidade_marcador_customizado').val($('#marcador_customizado').val().length);
+        }
+        
+        // HTMX response handling
+        formProjeto.addEventListener('htmx:beforeRequest', function(event) {
+            document.getElementById('loadingIndicator').style.display = 'block';
+        });
+        
+        formProjeto.addEventListener('htmx:afterRequest', function(event) {
+            document.getElementById('loadingIndicator').style.display = 'none';
+            
+            // O cabeçalho HX-Redirect será processado automaticamente pelo HTMX,
+            // então não precisamos verificar por "redirect:" no texto da resposta
+        });
+        
+        formProjeto.addEventListener('htmx:responseError', function(event) {
+            document.getElementById('loadingIndicator').style.display = 'none';
+            
+            // Criar alerta de erro para problemas de conexão
+            const alertContainer = document.querySelector('.alert-container');
+            if (!alertContainer) {
+                const newContainer = document.createElement('div');
+                newContainer.className = 'alert-container mb-4';
+                formProjeto.parentNode.insertBefore(newContainer, formProjeto);
+            }
+            
+            const alertElement = document.createElement('div');
+            alertElement.className = 'alert alert-danger alert-dismissible fade show';
+            alertElement.innerHTML = `
+                <strong>Erro de conexão!</strong> Ocorreu um problema ao enviar o formulário. 
+                Por favor, tente novamente ou contate o suporte.
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            
+            document.querySelector('.alert-container').appendChild(alertElement);
+        });
+        
+        // Remover mensagens de erro quando o usuário começa a corrigir o campo
+        document.querySelectorAll('.is-invalid').forEach(function(element) {
+            element.addEventListener('input', function() {
+                this.classList.remove('is-invalid');
+                const feedback = this.nextElementSibling;
+                if (feedback && feedback.classList.contains('invalid-feedback')) {
+                    feedback.style.display = 'none';
+                }
+            });
+            
+            element.addEventListener('change', function() {
+                this.classList.remove('is-invalid');
+                const feedback = this.nextElementSibling;
+                if (feedback && feedback.classList.contains('invalid-feedback')) {
+                    feedback.style.display = 'none';
+                }
+            });
+        });
+
+        // Verificação se projeto já existe para a empresa selecionada
+        const empresaSelect = document.getElementById('empresa');
+        const codigoProjetoInput = document.getElementById('codigo_projeto');
+        
+        function verificarProjetoExistente() {
+            const empresaId = empresaSelect.value;
+            const codigoProjeto = codigoProjetoInput.value.trim();
+            
+            // Só verificar se ambos os campos estiverem preenchidos
+            if (!empresaId || !codigoProjeto) {
+                return;
+            }
+            
+            // Mostrar indicador de verificação
+            const small = document.createElement('small');
+            small.id = 'verificando-projeto';
+            small.className = 'text-muted ms-2';
+            small.innerHTML = '<i class="bi bi-hourglass-split"></i> Verificando...';
+            
+            // Remover mensagem anterior, se existir
+            const existingSmall = document.getElementById('verificando-projeto');
+            if (existingSmall) {
+                existingSmall.remove();
+            }
+            
+            // Remover alerta anterior, se existir
+            const existingAlert = document.getElementById('projeto-existente-alert');
+            if (existingAlert) {
+                existingAlert.remove();
+            }
+            
+            codigoProjetoInput.insertAdjacentElement('afterend', small);
+            
+            // Fazer requisição ao servidor
+            fetch(`/api/verificar-projeto/?empresa_id=${empresaId}&codigo_projeto=${encodeURIComponent(codigoProjeto)}`)
+                .then(response => response.json())
+                .then(data => {
+                    small.remove();
+                    
+                    if (data.exists) {
+                        // Criar alerta se projeto já existe
+                        const alertDiv = document.createElement('div');
+                        alertDiv.id = 'projeto-existente-alert';
+                        alertDiv.className = 'alert alert-warning mt-2';
+                        alertDiv.innerHTML = `
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            <strong>Atenção!</strong> Já existe um projeto com o código "${codigoProjeto}" 
+                            para a empresa "${data.empresa_nome}".
+                        `;
+                        
+                        codigoProjetoInput.parentNode.appendChild(alertDiv);
+                        codigoProjetoInput.classList.add('border-warning');
+                    }
+                })
+                .catch(error => {
+                    small.remove();
+                    console.error('Erro ao verificar projeto:', error);
+                });
+        }
+        
+        // Verificar quando o usuário terminar de digitar o código do projeto
+        let verificacaoTimeout;
+        codigoProjetoInput.addEventListener('input', function() {
+            clearTimeout(verificacaoTimeout);
+            verificacaoTimeout = setTimeout(verificarProjetoExistente, 500); // Delay de 500ms
+        });
+        
+        // Verificar quando o usuário mudar a empresa
+        empresaSelect.addEventListener('change', verificarProjetoExistente);
+    });
+</script>
+{% endblock %}

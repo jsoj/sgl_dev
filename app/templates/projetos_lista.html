@@ -1,0 +1,268 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Lista de Projetos{% endblock %}
+{% block page_title %}Lista de Projetos{% endblock %}
+{% block page_icon %}folder{% endblock %}
+
+{% block navbar_right %}
+<a href="{% url 'criar_projeto' %}" class="btn btn-dark btn-sm">
+  <i class="bi bi-plus-circle"></i> Novo Projeto
+</a>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/admin/changelists.css' %}">
+<style>
+  .changelist-header {
+    background-color: #f9f9f9;
+    padding: 10px 15px;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .changelist-actions {
+    background-color: #f5f5f5;
+    padding: 8px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+  }
+  .filters-panel {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    border: 1px solid #dee2e6;
+  }
+  .search-panel {
+    margin-bottom: 15px;
+  }
+  .results-count {
+    color: #666;
+    font-size: 0.9rem;
+  }
+  .sortable {
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .sortable:hover {
+    background-color: #f5f5f5;
+  }
+  .sortable i {
+    margin-left: 5px;
+    color: #999;
+  }
+  .pagination {
+    margin-top: 20px;
+    justify-content: center;
+  }
+  .selected {
+    background-color: #fffdd1 !important;
+  }
+  .table-container {
+    overflow-x: auto;
+  }
+  .filter-group {
+    margin-bottom: 1rem;
+  }
+  .filter-group label {
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+  .htmx-indicator {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 9999;
+    display: none;
+  }
+  .htmx-request .htmx-indicator {
+    display: inline-block;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Mensagens -->
+{% if messages %}
+<div class="messages mb-3">
+  {% for message in messages %}
+  <div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% elif message.tags == 'warning' %}alert-warning{% else %}alert-info{% endif %} alert-dismissible fade show" role="alert">
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Barra de busca - ocupando toda largura -->
+<div class="row mb-3">
+  <div class="col-12">
+    <div class="search-panel">
+      <form hx-get="{% url 'projetos_lista_parcial' %}" 
+            hx-trigger="submit" 
+            hx-target="#projetos-content" 
+            hx-push-url="true"
+            hx-indicator="#loading-indicator"
+            class="d-flex">
+        <div class="input-group">
+          <span class="input-group-text bg-white">
+            <i class="bi bi-search"></i>
+          </span>
+          <input type="text" name="q" class="form-control" placeholder="Buscar por código, nome ou responsável" value="{{ search_query|default:'' }}">
+          <button class="btn btn-dark" type="submit">
+            Buscar
+          </button>
+          {% if search_query %}
+          <a hx-get="{% url 'projetos_lista_parcial' %}" 
+             hx-target="#projetos-content" 
+             hx-push-url="true"
+             class="btn btn-outline-secondary">
+            <i class="bi bi-x-circle"></i> Limpar
+          </a>
+          {% endif %}
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Área de filtros - 6 colunas lado a lado -->
+<div class="row mb-3">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header bg-light">
+        <h6 class="mb-0"><i class="bi bi-funnel me-2"></i>Filtros</h6>
+      </div>
+      <div class="card-body">
+        <form id="filter-form" hx-get="{% url 'projetos_lista_parcial' %}" 
+              hx-target="#projetos-content"
+              hx-indicator="#loading-indicator"
+              hx-trigger="change from:select.filter-select delayed:500ms, 
+                          click from:button[type='submit']"
+              hx-push-url="true">
+          {% if search_query %}
+          <input type="hidden" name="q" value="{{ search_query }}">
+          {% endif %}
+          <input type="hidden" name="order_by" value="{{ order_by|default:'' }}">
+          
+          <div class="row">
+            <div class="col-md-4 col-lg-2">
+              <div class="filter-group">
+                <label class="form-label">Empresa</label>
+                <select name="empresa" class="form-select form-select-sm filter-select">
+                  <option value="">-- Todas --</option>
+                  {% for empresa in empresas %}
+                  <option value="{{ empresa.id }}" {% if empresa_filter == empresa.id|stringformat:"s" %}selected{% endif %}>
+                    {{ empresa.nome }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            
+            <div class="col-md-4 col-lg-2">
+              <div class="filter-group">
+                <label class="form-label">Cultivo</label>
+                <select name="cultivo" class="form-select form-select-sm filter-select">
+                  <option value="">-- Todos --</option>
+                  {% for cultivo in cultivos %}
+                  <option value="{{ cultivo.id }}" {% if cultivo_filter == cultivo.id|stringformat:"s" %}selected{% endif %}>
+                    {{ cultivo.nome }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            
+            <div class="col-md-4 col-lg-2">
+              <div class="filter-group">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select form-select-sm filter-select">
+                  <option value="">-- Todos --</option>
+                  {% for status in statuses %}
+                  <option value="{{ status.id }}" {% if status_filter == status.id|stringformat:"s" %}selected{% endif %}>
+                    {{ status.nome }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            
+            <div class="col-md-4 col-lg-2">
+              <div class="filter-group">
+                <label class="form-label">Etapa</label>
+                <select name="etapa" class="form-select form-select-sm filter-select">
+                  <option value="">-- Todas --</option>
+                  {% for etapa in etapas %}
+                  <option value="{{ etapa.id }}" {% if etapa_filter == etapa.id|stringformat:"s" %}selected{% endif %}>
+                    {{ etapa.nome }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            
+            <div class="col-md-4 col-lg-2">
+              <div class="filter-group">
+                <label class="form-label">Origem da Amostra</label>
+                <select name="origem_amostra" class="form-select form-select-sm filter-select">
+                  <option value="">-- Todas --</option>
+                  {% for value, label in origem_opcoes %}
+                  <option value="{{ value }}" {% if origem_filter == value %}selected{% endif %}>
+                    {{ label }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            
+            <div class="col-md-4 col-lg-2">
+              <div class="filter-group">
+                <label class="form-label">Status do Projeto</label>
+                <select name="ativo" class="form-select form-select-sm filter-select">
+                  {% for value, label in ativo_opcoes %}
+                  <option value="{{ value|default_if_none:'' }}" {% if ativo_filter == value|default_if_none:'' %}selected{% endif %}>
+                    {{ label }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          <div class="row mt-3">
+            <div class="col">
+              <div class="d-flex justify-content-end">
+                <a hx-get="{% url 'projetos_lista_parcial' %}" 
+                   hx-target="#projetos-content"
+                   hx-push-url="true"
+                   class="btn btn-outline-secondary btn-sm me-2">
+                  <i class="bi bi-x-circle"></i> Limpar Filtros
+                </a>
+                <button type="submit" class="btn btn-primary btn-sm">
+                  <i class="bi bi-filter"></i> Aplicar Filtros
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Indicador de carregamento -->
+<div id="loading-indicator" class="htmx-indicator">
+  <div class="spinner-border text-primary" role="status">
+    <span class="visually-hidden">Carregando...</span>
+  </div>
+</div>
+
+<!-- Conteúdo dinâmico que será atualizado pelo HTMX -->
+<div id="projetos-content">
+  {% include "projetos_lista_content.html" %}
+</div>
+{% endblock %}

@@ -10,6 +10,7 @@ from django.conf import settings
 from django.core.mail import EmailMessage
 import os  
 from django.core.validators import FileExtensionValidator
+from django.utils import timezone
 
 import logging
 
@@ -30,6 +31,7 @@ class Empresa(models.Model):
     email = models.EmailField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
     data_cadastro = models.DateTimeField(auto_now_add=True)
+    ativo = models.BooleanField(default=True)
 
     class Meta:
         verbose_name = 'Empresa'
@@ -38,6 +40,7 @@ class Empresa(models.Model):
 
     def __str__(self):
         return self.nome
+
 
 class User(AbstractUser):
     telefone = models.CharField(max_length=20, blank=True, null=True)
@@ -53,6 +56,7 @@ class User(AbstractUser):
     def __str__(self):
         return self.email or self.username
 
+
 class EmpresaMixin(models.Model):
     empresa = models.ForeignKey(
         Empresa,
@@ -64,80 +68,117 @@ class EmpresaMixin(models.Model):
     class Meta:
         abstract = True
 
+
 # MODELOS CHOICES 
 
 ORIGEM_CHOICES = [
-    ("FOLHA","FOLHA"),
-     ("SEMENTE","SEMENTE",)]
+    ("FOLHA", "FOLHA"),
+    ("SEMENTE", "SEMENTE",)]
 
 TIPO_CHOICES = [
-    ("PLANTA 02 DISCOS]","PLANTA 02 DISCOS"),
-    ("PLANTA 04 DISCOS]","PLANTA 04 DISCOS"),
-    ("BULK 08 DISCOS","BULK 08 DISCOS",)]
+    ("PLANTA 02 DISCOS]", "PLANTA 02 DISCOS"),
+    ("PLANTA 04 DISCOS]", "PLANTA 04 DISCOS"),
+    ("BULK 08 DISCOS", "BULK 08 DISCOS",)]
 
 IF_MARCADOR_CHOICES = [
-    ("HOMO-HEMI","HOMO-HEMI"),
-    ("HOMO","HOMO",)]
+    ("---", "---"),
+    ("HOMO-HEMI", "HOMO-HEMI"),
+    ("HOMO", "HOMO",)]
 
 
-class Tecnologia( models.Model):
-    nome = models.CharField(max_length=40, unique=True)
+class Tecnologia(models.Model):
+    nome = models.CharField(max_length=100)
     caracteristica = models.TextField(max_length=100, blank=True)
     vencimento_patente = models.DateField(blank=True, null=True)
     data_cadastro = models.DateField(auto_now_add=True)
+    ativo = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return self.nome
+
     class Meta:
         verbose_name_plural = 'Tecnologias'
- 
-class Cultivo( models.Model):
-    nome = models.CharField(max_length=40)
+        verbose_name = "Tecnologia"
+        ordering = ['nome']
+
+
+class Cultivo(models.Model):
+    nome = models.CharField(max_length=100)
     nome_cientifico = models.CharField(max_length=40, blank=True, null=True)
     data_cadastro = models.DateField(auto_now_add=True)
+    ativo = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
 
     def __str__(self) -> str:
         return self.nome
-    class Meta:
-       verbose_name_plural = 'Cultivos'
 
-class Status( models.Model):
-    nome = models.CharField(max_length=40)
+    class Meta:
+        verbose_name_plural = 'Cultivos'
+        verbose_name = "Cultivo"
+        ordering = ['nome']
+
+
+class Status(models.Model):
+    nome = models.CharField(max_length=100)
+    ativo = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
 
     def __str__(self) -> str:
         return self.nome
-    class Meta:
-       verbose_name_plural = 'Status'
 
-class Etapa( models.Model):
-    nome = models.CharField(max_length=40)
+    class Meta:
+        verbose_name_plural = 'Status'
+        verbose_name = "Status"
+        ordering = ['nome']
+
+
+class Etapa(models.Model):
+    nome = models.CharField(max_length=100)
+    ativo = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
 
     def __str__(self) -> str:
         return self.nome
-    class Meta:
-       verbose_name_plural = 'Etapas'
 
-class MarcadorTrait( models.Model):
+    class Meta:
+        verbose_name_plural = 'Etapas'
+        verbose_name = "Etapa"
+        ordering = ['nome']
+
+
+class MarcadorTrait(models.Model):
     cultivo = models.ForeignKey(Cultivo, on_delete=models.CASCADE, blank=False, null=False, help_text='Escolha ou cadastre um cultivo para este marcador. Exemplo: Soja')
-    nome = models.CharField(max_length=40)
+    nome = models.CharField(max_length=100)
     caracteristica = models.TextField(blank=True, null=True)
     data_cadastro = models.DateField(auto_now_add=True)
+    ativo = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
 
     def __str__(self) -> str:
         return self.nome
-    class Meta:
-       verbose_name_plural = 'Marcadores Traits'
 
-class MarcadorCustomizado( models.Model):
+    class Meta:
+        verbose_name_plural = 'Marcadores Traits'
+        verbose_name = "Marcador Trait"
+        ordering = ['nome']
+
+
+class MarcadorCustomizado(models.Model):
     cultivo = models.ForeignKey(Cultivo, on_delete=models.CASCADE, blank=False, null=False, help_text='Escolha ou cadastre um cultivo para este marcador. Exemplo: Soja')
-    nome = models.CharField(max_length=40)
+    nome = models.CharField(max_length=100)
     caracteristica = models.TextField(blank=True, null=True)
     data_cadastro = models.DateField(auto_now_add=True)
+    ativo = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
 
     def __str__(self) -> str:
         return self.nome
+
     class Meta:
-       verbose_name_plural = 'Marcadores Customizados'
+        verbose_name_plural = 'Marcadores Customizados'
+        verbose_name = "Marcador Customizado"
+        ordering = ['nome']
 
 # INICIO PROJETO 
 
@@ -174,7 +215,7 @@ class Projeto(EmpresaMixin, models.Model):
     tipo_amostra = models.CharField(                  max_length=20,  blank=True, choices=TIPO_CHOICES, default=1,                          help_text='Escolha o tipo de origem e a quantidade de discos da amostras')
     herbicida = models.BooleanField(default=False,                                                                                          help_text='Foi aplicado herbicida para controle de homozigose' )
     marcador_analisado = models.BooleanField(default=False,                                                                                 help_text='Já foi passado marcador no passado.' )
-    se_marcador_analisado = models.CharField(         max_length=20,  blank=True, choices=IF_MARCADOR_CHOICES, default=1,                   help_text='Se já foi passado marcador, qual foi o resultado?')
+    se_marcador_analisado = models.CharField(         max_length=20,  blank=True, choices=IF_MARCADOR_CHOICES, default=0,                   help_text='Se já foi passado marcador, qual foi o resultado?')
     data_planejada_envio = models.DateField(                            blank=True, null=True)
     data_envio = models.DateField(                                      blank=True, null=True)
     data_planejada_liberacao_resultados = models.DateField(             blank=True, null=True)
@@ -531,7 +572,7 @@ class Projeto(EmpresaMixin, models.Model):
         try:
             with transaction.atomic():
                 # Calcula número de placas necessárias (96 poços por placa)
-                num_plates = -(-self.quantidade_amostras // 92)  # 92 poços úteis por placa
+                num_plates = -(-self.quantidade_amostras // 90)  # 90 poços úteis por placa
                 print(f"Número de placas necessárias: {num_plates}")
                 
                 # Cria a amostra de controle NTC
@@ -991,6 +1032,38 @@ class Placa384(EmpresaMixin, models.Model):
             amostra__codigo_amostra__icontains='NTC'
         ).count()
 
+    def transfer_96_to_384(self, placas_96_list):
+        """
+        Transfere 4 placas 96 para uma placa 384, 
+        mapeando cada placa 96 para um quadrante da placa 384.
+        
+        Args:
+            placas_96_list: Lista de objetos Placa96 (exatamente 4)
+        
+        Returns:
+            Retorna uma lista dos objetos PlacaMap384 criados
+        """
+        if len(placas_96_list) != 4:
+            raise ValueError("É necessário exatamente 4 placas de 96 poços para criar uma placa de 384.")
+        
+        mapas_criados = []
+        
+        # Para cada placa de 96, criar um mapeamento para um quadrante da placa 384
+        for i, placa_96 in enumerate(placas_96_list):
+            quadrante = i + 1  # Quadrantes de 1 a 4
+            
+            # Criar o mapeamento
+            mapa = PlacaMap384.objects.create(
+                empresa=self.empresa,
+                projeto=self.projeto,
+                placa_origem=placa_96, 
+                placa_destino=self,
+                quadrante=quadrante
+            )
+            
+            mapas_criados.append(mapa)
+        
+        return mapas_criados
 
     WELLS_PER_PLATE = 96
 

@@ -1,0 +1,16 @@
+<div class="mb-3">
+    <h5>Projetos existentes na empresa</h5>
+    <ul class="list-group mb-3">
+        {% if projetos %}
+            {% for projeto in projetos %}
+                <li class="list-group-item">
+                    {{ projeto.codigo_projeto }} - {{ projeto.nome_projeto_cliente|default:"Sem nome" }}
+                </li>
+            {% empty %}
+                <li class="list-group-item">Nenhum projeto encontrado para esta empresa.</li>
+            {% endfor %}
+        {% else %}
+            <li class="list-group-item">Nenhum projeto encontrado para esta empresa.</li>
+        {% endif %}
+    </ul>
+</div>

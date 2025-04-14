@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block title %}Início - Sistema de Gestão Laboratorial{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">Bem-vindo ao Sistema de Gestão Laboratorial</h1>
+            
+            {% if request.user.is_authenticated %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Informações do usuário</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-1"><strong>Nome:</strong> {{ request.user.get_full_name|default:request.user.username }}</p>
+                        <p class="mb-1"><strong>E-mail:</strong> {{ request.user.email }}</p>
+                        {% if request.user.is_superuser %}
+                            <p class="mb-0"><span class="badge bg-danger">Administrador</span></p>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+            
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Projetos</h5>
+                            <p class="card-text">Gerenciar projetos e amostras do laboratório.</p>
+                            <a href="{% url 'criar_projeto' %}" class="btn btn-primary">Criar Projeto</a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Placas</h5>
+                            <p class="card-text">Criar e gerenciar placas de amostras.</p>
+                            <a href="{% url 'criar_placa_384' %}" class="btn btn-primary">Criar Placa 384</a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Criação HTMX</h5>
+                            <p class="card-text">Criar placas com interface interativa.</p>
+                            <a href="{% url 'criar_placas_384_htmx' %}" class="btn btn-success">Criar Placas 384 (HTMX)</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+
+{% block title %}Criar Placas 384{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">Criar Placas 384</h1>
+
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Selecione a empresa e o projeto</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="empresa" class="form-label">Empresa</label>
+                    <select
+                        class="form-select"
+                        id="empresa"
+                        name="empresa"
+                        hx-get="{% url 'carregar_projetos_por_empresa' %}"
+                        hx-target="#projetos-container"
+                        hx-indicator="#loading-indicator"
+                        hx-trigger="change"
+                    >
+                        <option value="">Selecione uma empresa</option>
+                        {% for empresa in empresas %}
+                            <option value="{{ empresa.id }}">{{ empresa.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div id="projetos-container">
+                        <!-- Os projetos serão carregados aqui via HTMX -->
+                        {% include 'partials/projetos_por_empresa.html' with projetos=None %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="placas-container">
+        <p class="mt-4 text-muted">Selecione um projeto para carregar as placas 96.</p>
+    </div>
+
+    <div id="resultado-container">
+        <!-- Os resultados da criação de placas 384 serão exibidos aqui -->
+    </div>
+
+    <!-- Indicador de carregamento -->
+    <div id="loading-indicator" class="htmx-indicator">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Carregando...</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+    .htmx-indicator {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 1000;
+        background-color: rgba(255, 255, 255, 0.8);
+        padding: 20px;
+        border-radius: 5px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    .htmx-request .htmx-indicator {
+        display: block;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+    function atualizarContadorECheckboxes(containerElement) {
+        if (!containerElement) {
+            console.warn('atualizarContadorECheckboxes called without a valid container element.');
+            return;
+        }
+        const plateListContainer = containerElement.querySelector('#placas-96-container');
+        if (!plateListContainer) {
+            return;
+        }
+
+        const selecionadas = plateListContainer.querySelectorAll('.placa-checkbox:checked').length;
+        const total = plateListContainer.querySelectorAll('.placa-checkbox').length;
+        const containerId = plateListContainer.id || 'placas-96-container';
+        console.log(`Counter update [${containerId}]: ${selecionadas}/${total} selected`);
+
+        const contador = plateListContainer.querySelector('#placas-selecionadas-contador');
+        if (contador) {
+            contador.textContent = `${selecionadas} placa${selecionadas !== 1 ? 's' : ''} selecionada${selecionadas !== 1 ? 's' : ''}`;
+        } else {
+            console.warn(`#placas-selecionadas-contador not found within ${containerId}`);
+        }
+
+        const selecionarTodas = plateListContainer.querySelector('#selecionar-todas-placas');
+        if (selecionarTodas) {
+            if (total === 0) {
+                selecionarTodas.checked = false;
+                selecionarTodas.indeterminate = false;
+                selecionarTodas.disabled = true;
+            } else {
+                selecionarTodas.disabled = false;
+                selecionarTodas.checked = selecionadas === total;
+                selecionarTodas.indeterminate = selecionadas > 0 && selecionadas < total;
+            }
+        } else {
+            console.warn(`#selecionar-todas-placas not found within ${containerId}`);
+        }
+    }
+
+    const placasContainer = document.getElementById('placas-container');
+
+    if (placasContainer) {
+        placasContainer.addEventListener('change', function(event) {
+            const plateListContainer = event.currentTarget.querySelector('#placas-96-container');
+            if (!plateListContainer) return;
+
+            if (event.target.matches('#selecionar-todas-placas')) {
+                console.log('Select all changed (delegated):', event.target.checked);
+                const isChecked = event.target.checked;
+                const checkboxes = plateListContainer.querySelectorAll('.placa-checkbox');
+                checkboxes.forEach(cb => {
+                    cb.checked = isChecked;
+                });
+                atualizarContadorECheckboxes(placasContainer);
+            } else if (event.target.matches('.placa-checkbox')) {
+                console.log('Individual checkbox changed (delegated)');
+                atualizarContadorECheckboxes(placasContainer);
+            }
+        });
+    } else {
+        console.error('Container #placas-container not found!');
+    }
+
+    document.body.addEventListener('htmx:afterSwap', function(event) {
+        if (event.detail.target.id === 'placas-container') {
+            console.log('HTMX swap finished into #placas-container. Updating checkbox state.');
+            atualizarContadorECheckboxes(event.detail.target);
+        } else if (event.detail.target.id === 'projetos-container') {
+            console.log('HTMX swap finished into #projetos-container. Clearing plate container state (if needed).');
+            const currentPlacasContainer = document.getElementById('placas-container');
+            if (currentPlacasContainer) {
+                atualizarContadorECheckboxes(currentPlacasContainer);
+            }
+        }
+    });
+
+    const initialPlacasContainer = document.getElementById('placas-container');
+    if (initialPlacasContainer) {
+        atualizarContadorECheckboxes(initialPlacasContainer);
+    }
+
+});
+</script>
+{% endblock %}

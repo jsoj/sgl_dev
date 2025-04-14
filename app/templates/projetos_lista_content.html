@@ -1,0 +1,246 @@
+<!-- Aqui fica apenas o conteúdo que deve ser atualizado dinamicamente -->
+
+<!-- Formulário de ações em lote -->
+<form method="post" hx-post="{% url 'projetos_acoes' %}" 
+      hx-target="#projetos-content" 
+      hx-indicator="#loading-indicator"
+      id="changelist-form">
+  {% csrf_token %}
+  
+  <!-- Linha com selecionar todos e ações -->
+  <div class="row mb-3 align-items-center">
+    <div class="col-auto">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="select-all">
+        <label class="form-check-label" for="select-all">Selecionar todos</label>
+      </div>
+    </div>
+    
+    <div class="col">
+      <div class="input-group">
+        <select name="action" class="form-select">
+          <option value="">----- Ações -----</option>
+          <option value="ativar">Ativar projetos selecionados</option>
+          <option value="desativar">Desativar projetos selecionados</option>
+          <option value="exportar_csv">Exportar selecionados para CSV</option>
+        </select>
+        <button type="submit" class="btn btn-outline-secondary">Executar</button>
+      </div>
+    </div>
+    
+    <div class="col-auto ms-auto">
+      <div class="d-flex align-items-center">
+        <span class="results-count me-3">
+          {% with total=page_obj.paginator.count %}
+          {% if total == 1 %}
+          <span>1 projeto encontrado</span>
+          {% else %}
+          <span>{{ total }} projetos encontrados</span>
+          {% endif %}
+          {% endwith %}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabela de resultados - ocupando toda largura -->
+  <div class="row">
+    <div class="col-12">
+      <div class="table-container">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th style="width: 1%">&nbsp;</th>
+              <th class="sortable" 
+                  hx-get="{% url 'projetos_lista_parcial' %}?order_by={% if order_by == 'codigo_projeto' %}-codigo_projeto{% else %}codigo_projeto{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}{% if empresa_filter %}&empresa={{ empresa_filter }}{% endif %}{% if cultivo_filter %}&cultivo={{ cultivo_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if etapa_filter %}&etapa={{ etapa_filter }}{% endif %}{% if origem_filter %}&origem_amostra={{ origem_filter }}{% endif %}{% if ativo_filter %}&ativo={{ ativo_filter }}{% endif %}" 
+                  hx-target="#projetos-content"
+                  hx-indicator="#loading-indicator"
+                  hx-push-url="true">
+                Código
+                {% if order_by == 'codigo_projeto' %}<i class="bi bi-caret-down-fill"></i>{% elif order_by == '-codigo_projeto' %}<i class="bi bi-caret-up-fill"></i>{% endif %}
+              </th>
+              <th class="sortable" 
+                  hx-get="{% url 'projetos_lista_parcial' %}?order_by={% if order_by == 'nome_projeto_cliente' %}-nome_projeto_cliente{% else %}nome_projeto_cliente{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}{% if empresa_filter %}&empresa={{ empresa_filter }}{% endif %}{% if cultivo_filter %}&cultivo={{ cultivo_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if etapa_filter %}&etapa={{ etapa_filter }}{% endif %}{% if origem_filter %}&origem_amostra={{ origem_filter }}{% endif %}{% if ativo_filter %}&ativo={{ ativo_filter }}{% endif %}" 
+                  hx-target="#projetos-content"
+                  hx-indicator="#loading-indicator"
+                  hx-push-url="true">
+                Nome
+                {% if order_by == 'nome_projeto_cliente' %}<i class="bi bi-caret-down-fill"></i>{% elif order_by == '-nome_projeto_cliente' %}<i class="bi bi-caret-up-fill"></i>{% endif %}
+              </th>
+              <th class="sortable" 
+                  hx-get="{% url 'projetos_lista_parcial' %}?order_by={% if order_by == 'empresa__nome' %}-empresa__nome{% else %}empresa__nome{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}{% if empresa_filter %}&empresa={{ empresa_filter }}{% endif %}{% if cultivo_filter %}&cultivo={{ cultivo_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if etapa_filter %}&etapa={{ etapa_filter }}{% endif %}{% if origem_filter %}&origem_amostra={{ origem_filter }}{% endif %}{% if ativo_filter %}&ativo={{ ativo_filter }}{% endif %}" 
+                  hx-target="#projetos-content"
+                  hx-indicator="#loading-indicator"
+                  hx-push-url="true">
+                Empresa
+                {% if order_by == 'empresa__nome' %}<i class="bi bi-caret-down-fill"></i>{% elif order_by == '-empresa__nome' %}<i class="bi bi-caret-up-fill"></i>{% endif %}
+              </th>
+              <th class="sortable" 
+                  hx-get="{% url 'projetos_lista_parcial' %}?order_by={% if order_by == 'quantidade_amostras' %}-quantidade_amostras{% else %}quantidade_amostras{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}{% if empresa_filter %}&empresa={{ empresa_filter }}{% endif %}{% if cultivo_filter %}&cultivo={{ cultivo_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if etapa_filter %}&etapa={{ etapa_filter }}{% endif %}{% if origem_filter %}&origem_amostra={{ origem_filter }}{% endif %}{% if ativo_filter %}&ativo={{ ativo_filter }}{% endif %}" 
+                  hx-target="#projetos-content"
+                  hx-indicator="#loading-indicator"
+                  hx-push-url="true">
+                Qtd Amostras
+                {% if order_by == 'quantidade_amostras' %}<i class="bi bi-caret-down-fill"></i>{% elif order_by == '-quantidade_amostras' %}<i class="bi bi-caret-up-fill"></i>{% endif %}
+              </th>
+              <th>Status</th>
+              <th>Cultivo</th>
+              <th class="sortable" 
+                  hx-get="{% url 'projetos_lista_parcial' %}?order_by={% if order_by == 'created_at' %}-created_at{% else %}created_at{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}{% if empresa_filter %}&empresa={{ empresa_filter }}{% endif %}{% if cultivo_filter %}&cultivo={{ cultivo_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if etapa_filter %}&etapa={{ etapa_filter }}{% endif %}{% if origem_filter %}&origem_amostra={{ origem_filter }}{% endif %}{% if ativo_filter %}&ativo={{ ativo_filter }}{% endif %}" 
+                  hx-target="#projetos-content"
+                  hx-indicator="#loading-indicator"
+                  hx-push-url="true">
+                Criado em
+                {% if order_by == 'created_at' %}<i class="bi bi-caret-down-fill"></i>{% elif order_by == '-created_at' %}<i class="bi bi-caret-up-fill"></i>{% endif %}
+              </th>
+              <th>Ativo</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for projeto in page_obj %}
+            <tr class="{% cycle 'row1' 'row2' %}">
+              <td>
+                <input type="checkbox" name="_selected_action" value="{{ projeto.id }}" class="action-select">
+              </td>
+              <td><a href="#">{{ projeto.codigo_projeto }}</a></td>
+              <td>{{ projeto.nome_projeto_cliente|default:"-" }}</td>
+              <td>{{ projeto.empresa.nome|default:"-" }}</td>
+              <td>{{ projeto.quantidade_amostras }}</td>
+              <td>{{ projeto.status.nome|default:"-" }}</td>
+              <td>{{ projeto.cultivo.nome|default:"-" }}</td>
+              <td>{{ projeto.created_at|date:"d/m/Y" }}</td>
+              <td>
+                {% if projeto.ativo %}
+                <span class="badge bg-success">Sim</span>
+                {% else %}
+                <span class="badge bg-danger">Não</span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="btn-group btn-group-sm">
+                  <a href="#" class="btn btn-outline-secondary" title="Editar">
+                    <i class="bi bi-pencil"></i>
+                  </a>
+                  <a href="#" class="btn btn-outline-secondary" title="Ver detalhes">
+                    <i class="bi bi-eye"></i>
+                  </a>
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="10" class="text-center py-4">
+                <p class="text-muted mb-0">Nenhum projeto encontrado.</p>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</form>
+
+<!-- Paginação com HTMX -->
+{% if page_obj.has_other_pages %}
+<nav aria-label="Paginação" class="mt-3">
+  <ul class="pagination">
+    {% if page_obj.has_previous %}
+    <li class="page-item">
+      <a class="page-link" 
+         hx-get="{% url 'projetos_lista_parcial' %}?page=1{% if search_query %}&q={{ search_query }}{% endif %}{% if empresa_filter %}&empresa={{ empresa_filter }}{% endif %}{% if cultivo_filter %}&cultivo={{ cultivo_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if etapa_filter %}&etapa={{ etapa_filter }}{% endif %}{% if origem_filter %}&origem_amostra={{ origem_filter }}{% endif %}{% if ativo_filter %}&ativo={{ ativo_filter }}{% endif %}&order_by={{ order_by }}" 
+         hx-target="#projetos-content"
+         hx-indicator="#loading-indicator"
+         hx-push-url="true">
+        <span aria-hidden="true">&laquo;&laquo;</span>
+      </a>
+    </li>
+    <li class="page-item">
+      <a class="page-link" 
+         hx-get="{% url 'projetos_lista_parcial' %}?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if empresa_filter %}&empresa={{ empresa_filter }}{% endif %}{% if cultivo_filter %}&cultivo={{ cultivo_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if etapa_filter %}&etapa={{ etapa_filter }}{% endif %}{% if origem_filter %}&origem_amostra={{ origem_filter }}{% endif %}{% if ativo_filter %}&ativo={{ ativo_filter }}{% endif %}&order_by={{ order_by }}" 
+         hx-target="#projetos-content"
+         hx-indicator="#loading-indicator"
+         hx-push-url="true">
+        <span aria-hidden="true">&laquo;</span>
+      </a>
+    </li>
+    {% endif %}
+
+    {% for i in page_range %}
+    <li class="page-item {% if page_obj.number == i %}active{% endif %}">
+      <a class="page-link" 
+         hx-get="{% url 'projetos_lista_parcial' %}?page={{ i }}{% if search_query %}&q={{ search_query }}{% endif %}{% if empresa_filter %}&empresa={{ empresa_filter }}{% endif %}{% if cultivo_filter %}&cultivo={{ cultivo_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if etapa_filter %}&etapa={{ etapa_filter }}{% endif %}{% if origem_filter %}&origem_amostra={{ origem_filter }}{% endif %}{% if ativo_filter %}&ativo={{ ativo_filter }}{% endif %}&order_by={{ order_by }}" 
+         hx-target="#projetos-content"
+         hx-indicator="#loading-indicator"
+         hx-push-url="true">
+        {{ i }}
+      </a>
+    </li>
+    {% endfor %}
+
+    {% if page_obj.has_next %}
+    <li class="page-item">
+      <a class="page-link" 
+         hx-get="{% url 'projetos_lista_parcial' %}?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if empresa_filter %}&empresa={{ empresa_filter }}{% endif %}{% if cultivo_filter %}&cultivo={{ cultivo_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if etapa_filter %}&etapa={{ etapa_filter }}{% endif %}{% if origem_filter %}&origem_amostra={{ origem_filter }}{% endif %}{% if ativo_filter %}&ativo={{ ativo_filter }}{% endif %}&order_by={{ order_by }}" 
+         hx-target="#projetos-content"
+         hx-indicator="#loading-indicator"
+         hx-push-url="true">
+        <span aria-hidden="true">&raquo;</span>
+      </a>
+    </li>
+    <li class="page-item">
+      <a class="page-link" 
+         hx-get="{% url 'projetos_lista_parcial' %}?page={{ page_obj.paginator.num_pages }}{% if search_query %}&q={{ search_query }}{% endif %}{% if empresa_filter %}&empresa={{ empresa_filter }}{% endif %}{% if cultivo_filter %}&cultivo={{ cultivo_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if etapa_filter %}&etapa={{ etapa_filter }}{% endif %}{% if origem_filter %}&origem_amostra={{ origem_filter }}{% endif %}{% if ativo_filter %}&ativo={{ ativo_filter }}{% endif %}&order_by={{ order_by }}" 
+         hx-target="#projetos-content"
+         hx-indicator="#loading-indicator"
+         hx-push-url="true">
+        <span aria-hidden="true">&raquo;&raquo;</span>
+      </a>
+    </li>
+    {% endif %}
+  </ul>
+</nav>
+{% endif %}
+
+<script>
+  // Inicializar comportamento dos checkboxes
+  initializeCheckboxBehavior();
+  
+  function initializeCheckboxBehavior() {
+    const selectAllCheckbox = document.getElementById('select-all');
+    const actionCheckboxes = document.querySelectorAll('input.action-select');
+    
+    if (selectAllCheckbox) {
+      selectAllCheckbox.addEventListener('change', function() {
+        actionCheckboxes.forEach(checkbox => {
+          checkbox.checked = selectAllCheckbox.checked;
+          updateRowSelection(checkbox);
+        });
+      });
+    }
+    
+    actionCheckboxes.forEach(checkbox => {
+      checkbox.addEventListener('change', function() {
+        updateRowSelection(checkbox);
+        
+        if (selectAllCheckbox) {
+          let allSelected = true;
+          actionCheckboxes.forEach(cb => {
+            if (!cb.checked) allSelected = false;
+          });
+          selectAllCheckbox.checked = allSelected;
+        }
+      });
+    });
+  }
+  
+  function updateRowSelection(checkbox) {
+    const row = checkbox.closest('tr');
+    if (checkbox.checked) {
+      row.classList.add('selected');
+    } else {
+      row.classList.remove('selected');
+    }
+  }
+</script>
