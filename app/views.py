@@ -7,7 +7,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.db import transaction
 from django.core.exceptions import ValidationError, PermissionDenied
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 import logging
 from django.contrib import admin
 
@@ -17,7 +17,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Placa384, Projeto, Placa96
+from .models import Placa384, Projeto, Placa96, Empresa, Placa1536
 from .forms import TransferPlacasForm
 from .serializers import GroupSerializer, UserSerializer
 
@@ -148,135 +148,145 @@ def criar_projeto(request):
 
 @login_required
 def criar_placa_384(request):
-    """View para criação de placas 384"""
-    if request.method == 'POST':
-        try:
-            with transaction.atomic():
-                empresa_id = request.POST.get('empresa')
-                projeto_id = request.POST.get('projeto')
-                placas_ids = request.POST.getlist('placas[]')
-                codigo_placa_384 = request.POST.get('codigo_placa_384')
+    """
+    View para criar uma placa 384 a partir de placas 96 selecionadas.
+    """
+    if request.method != 'POST':
+        return HttpResponse("Método não permitido", status=405)
+    
+    try:
+        # Obter IDs das placas selecionadas
+        placa_ids = request.POST.getlist('placas_selecionadas')
+        
+        if not placa_ids:
+            return render(request, 'partials/resultado_criacao_placa.html', {
+                'sucesso': False,
+                'mensagem': 'Nenhuma placa 96 foi selecionada.'
+            })
+        
+        # Obter as placas pelo ID
+        placas_96 = Placa96.objects.filter(id__in=placa_ids)
+        
+        if not placas_96.exists():
+            return render(request, 'partials/resultado_criacao_placa.html', {
+                'sucesso': False,
+                'mensagem': 'Placas não encontradas.'
+            })
+            
+        if placas_96.count() > 4:
+            return render(request, 'partials/resultado_criacao_placa.html', {
+                'sucesso': False,
+                'mensagem': 'Só é possível transferir até 4 placas 96 para uma placa 384.'
+            })
+        
+        # Todas as placas devem ser do mesmo projeto
+        projeto = placas_96.first().projeto
+        if placas_96.exclude(projeto=projeto).exists():
+            return render(request, 'partials/resultado_criacao_placa.html', {
+                'sucesso': False,
+                'mensagem': 'Todas as placas devem pertencer ao mesmo projeto.'
+            })
+        
+        # Criar a placa 384
+        empresa = projeto.empresa
+        codigo_placa = f"384-{projeto.codigo_projeto}-{Placa384.objects.filter(projeto=projeto).count() + 1:03d}"
+        
+        placa_384 = Placa384.objects.create(
+            empresa=empresa,
+            projeto=projeto,
+            codigo_placa=codigo_placa
+        )
+        
+        # Transferir placas 96 para a placa 384
+        placa_384.transfer_96_to_384(placas_96)
+        
+        return render(request, 'partials/resultado_criacao_placa.html', {
+            'sucesso': True,
+            'placa_384': placa_384,
+            'placas_96': placas_96
+        })
+        
+    except Exception as e:
+        traceback.print_exc()
+        return render(request, 'partials/resultado_criacao_placa.html', {
+            'sucesso': False,
+            'mensagem': f'Erro ao criar placa 384: {str(e)}'
+        })
 
-                # Validações básicas
-                if len(placas_ids) != 4:
-                    raise ValidationError('Selecione exatamente 4 placas.')
-
-                # Buscar objetos do banco
-                empresa = Empresa.objects.get(id=empresa_id)
-                projeto = Projeto.objects.get(id=projeto_id)
-                placas_96 = list(Placa96.objects.filter(id__in=placas_ids))
-
-                # Validações adicionais
-                if not request.user.is_superuser and request.user.empresa != empresa:
-                    raise ValidationError('Sem permissão para esta empresa.')
-
-                if Placa384.objects.filter(codigo_placa=codigo_placa_384, projeto=projeto, empresa=empresa).exists():
-                    raise ValidationError('Já existe uma placa 384 com este código para este projeto.')
-
-                # Criar nova placa 384
-                placa_384 = Placa384.objects.create(
-                    empresa=empresa,
-                    projeto=projeto,
-                    codigo_placa=codigo_placa_384
-                )
-
-                # Realizar transferência
-                placa_384.transfer_96_to_384(placas_96)
-
-                messages.success(request, 'Placa 384 criada com sucesso!')
-                return redirect('home')
-
-        except ValidationError as e:
-            messages.error(request, str(e))
-        except Exception as e:
-            logger.error(f"Erro ao criar placa 384: {str(e)}", exc_info=True)
-            messages.error(request, f'Erro ao criar placa: {str(e)}')
-
-    # Se for GET ou se houver erro no POST, renderiza o formulário
+@login_required
+def criar_placa_384_htmx(request):
+    """
+    View para exibir o formulário inicial de criação de placas 384 usando HTMX.
+    Mostra as empresas disponíveis para o usuário logado.
+    """
+    # Obtém as empresas que o usuário tem acesso
     if request.user.is_superuser:
         empresas = Empresa.objects.all()
     else:
-        empresas = Empresa.objects.filter(id=request.user.empresa.id)
+        empresas = request.user.empresas.all()
+    
+    context = {
+        'empresas': empresas
+    }
+    
+    return render(request, 'criar_placas_384_htmx.html', context)
 
-    return render(request, 'criar_placa_384.html', {'empresas': empresas})
+@login_required
+def carregar_projetos_por_empresa(request):
+    """
+    Endpoint HTMX para carregar projetos baseado na empresa selecionada
+    """
+    empresa_id = request.GET.get('empresa_id')
+    if not empresa_id:
+        return HttpResponse("<div class='alert alert-danger'>Selecione uma empresa</div>")
+    
+    try:
+        empresa = Empresa.objects.get(id=empresa_id)
+        # Verificar se o usuário tem acesso à empresa
+        if not request.user.is_superuser and empresa not in request.user.empresas.all():
+            return HttpResponse("<div class='alert alert-danger'>Acesso negado</div>")
+        
+        # Obter projetos da empresa
+        projetos = Projeto.objects.filter(empresa=empresa)
+        
+        return render(request, 'partials/projetos_dropdown.html', {'projetos': projetos})
+    
+    except Empresa.DoesNotExist:
+        return HttpResponse("<div class='alert alert-danger'>Empresa não encontrada</div>")
 
 
 @login_required
-def get_projetos(request, empresa_id):
-    try:
-        if not request.user.is_superuser and request.user.empresa.id != empresa_id:
-            return JsonResponse({'error': 'Sem permissão'}, status=403)
+def carregar_placas_por_projeto(request):
+    """
+    View para carregar placas 96 de um projeto selecionado via HTMX.
+    """
+    projeto_id = request.GET.get('projeto')
+    placas_96 = []
+    
+    if projeto_id:
+        try:
+            # Buscar as placas 96 do projeto selecionado
+            placas_96 = Placa96.objects.filter(
+                projeto_id=projeto_id,
+                is_active=True
+            ).order_by('codigo_placa')
             
-        projetos = Projeto.objects.filter(
-            empresa_id=empresa_id,
-            is_active=True
-        ).values('id', 'codigo_projeto', 'nome_projeto_cliente')
-        
-        projetos_list = [
-            {
-                'id': projeto['id'],
-                'text': f"{projeto['codigo_projeto']} - {projeto['nome_projeto_cliente'] or 'Sem nome'}"
-            }
-            for projeto in projetos
-        ]
-        
-        return JsonResponse({'results': projetos_list})
-        
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
-
-@login_required
-def get_placas_96(request, projeto_id):
-    try:
-        projeto = Projeto.objects.get(id=projeto_id)
-        
-        if not request.user.is_superuser and request.user.empresa != projeto.empresa:
-            return JsonResponse({'error': 'Sem permissão'}, status=403)
-        
-        placas = Placa96.objects.filter(
-            projeto_id=projeto_id,
-            is_active=True
-        ).values('id', 'codigo_placa')
-        
-        return JsonResponse(list(placas), safe=False)
-        
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
-
-
-@login_required
-def get_placas_96(request, projeto_id):
-    """API para buscar placas 96 disponíveis de um projeto"""
-    try:
-        projeto = Projeto.objects.get(id=projeto_id)
-        
-        # Verificar permissões
-        if not request.user.is_superuser and request.user.empresa != projeto.empresa:
-            return JsonResponse({'error': 'Sem permissão para acessar este projeto'}, status=403)
-        
-        # Buscar placas 96 ativas que não foram usadas em transferências
-        placas = Placa96.objects.filter(
-            projeto_id=projeto_id,
-            is_active=True
-        ).values('id', 'codigo_placa')
-        
-        # Converter para lista de dicionários
-        placas_list = list(placas)
-        
-        return JsonResponse(placas_list, safe=False)
-        
-    except Projeto.DoesNotExist:
-        return JsonResponse({'error': 'Projeto não encontrado'}, status=404)
-    except Exception as e:
-        logger.error(f"Erro ao buscar placas 96: {str(e)}", exc_info=True)
-        return JsonResponse({'error': f'Erro ao buscar placas: {str(e)}'}, status=400)
-
-@login_required
-def logout_view(request):
-    """View para realizar logout"""
-    from django.contrib.auth import logout
-    logout(request)
-    return redirect('login')
+            # Verificar se essas placas já foram usadas em alguma placa 384
+            # Para evitar exibir placas que já foram transferidas
+            from app.models import PlacaMap384
+            placas_usadas = PlacaMap384.objects.filter(
+                placa_origem__in=placas_96
+            ).values_list('placa_origem_id', flat=True)
+            
+            # Filtrar apenas placas que não foram usadas
+            placas_96 = placas_96.exclude(id__in=placas_usadas)
+            
+        except Exception as e:
+            print(f"Erro ao carregar placas 96 do projeto {projeto_id}: {e}")
+    
+    return render(request, 'partials/placas_96_listagem.html', {
+        'placas_96': placas_96
+    })
 
 
 # views.py
@@ -315,5 +325,10 @@ urlpatterns = [
         'admin/api/placas-1536/<int:projeto_id>/',
         views.get_placas_1536,
         name='api-placas-1536'
+    ),
+    path(
+        'htmx/carregar-placas-por-projeto/',
+        views.carregar_placas_por_projeto,
+        name='carregar-placas-por-projeto'
     ),
 ]

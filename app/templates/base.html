@@ -1,3 +1,4 @@
+
 {% load static %}
 <!DOCTYPE html>
 <html lang="pt-br">
@@ -7,80 +8,111 @@
     <title>{% block title %}SGL{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <!-- Adicionar HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.9"></script>
     <style>
         .sidebar {
             min-width: 250px;
             max-width: 250px;
             min-height: 100vh;
             transition: margin-left 0.3s;
+            z-index: 1030;
+            position: relative;
         }
         .sidebar.collapsed {
             margin-left: -250px;
         }
         #content {
             width: 100%;
-            min-height: 100vh;
             transition: margin-left 0.3s;
         }
+        .custom-navbar-title {
+            font-size: 1.25rem;
+            margin-bottom: 0;
+            color: #495057;
+        }
+        .navbar-actions {
+            display: flex;
+            align-items: center;
+        }
+        .navbar-actions > * {
+            margin-left: 0.5rem;
+        }
+        /* Adicionar estilos para itens de menu */
+        .nav-link {
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            transition: background-color 0.2s;
+        }
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .nav-link.active {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
     </style>
+    {% block extra_css %}{% endblock %}
 </head>
 <body>
     <div class="d-flex">
-        <!-- Sidebar -->
+        {% if not hide_sidebar %}
         <nav id="sidebar" class="sidebar bg-dark text-white">
             <div class="p-4">
-                <h3>SGL</h3>
-                <hr>
+                <h5 class="text-white mb-4">Menu Principal</h5>
                 <ul class="nav flex-column">
-                    <li class="nav-item">
-                        <a href="/admin" class="nav-link text-white">
-                            <i class="bi bi-file-earmark-plus"></i> Administração
+                    <li class="nav-item mb-2">
+                        <a href="{% url 'home' %}" class="nav-link text-white {% if request.path == '/' %}active{% endif %}">
+                            <i class="bi bi-house me-2"></i> Início
                         </a>
                     </li>
-                     <li class="nav-item">
-                        <a href="{% url 'criar_projeto' %}" class="nav-link text-white">
-                            <i class="bi bi-file-earmark-plus"></i> Criar Projeto
+                    <li class="nav-item mb-2">
+                        <a href="{% url 'projetos_lista' %}" class="nav-link text-white {% if '/projetos/' in request.path %}active{% endif %}">
+                            <i class="bi bi-folder me-2"></i> Projetos
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a href="{% url 'admin:app_placa384_transferir_96_384' %}" class="nav-link text-white">
-                            <i class="bi bi-grid-3x3"></i> Criar Placa 384
+                    <li class="nav-item mb-2">
+                        <a href="#" class="nav-link text-white">
+                            <i class="bi bi-grid-3x3 me-2"></i> Placas
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a href="{% url 'admin:app_placa384_transferir_384_384' %}" class="nav-link text-white">
-                            <i class="bi bi-grid-3x3"></i> Criar Placa Nova 384
-                        </a>
-                    </li>
+                    <!-- Outros itens de menu -->
                 </ul>
             </div>
         </nav>
+        {% endif %}
 
         <!-- Page Content -->
-        <div id="content">
+        <div id="content" class="{% if hide_sidebar %}w-100{% endif %}">
             <nav class="navbar navbar-expand-lg navbar-light bg-light">
                 <div class="container-fluid">
-                    <button type="button" id="sidebarCollapse" class="btn btn-dark">
+                    {% if not hide_sidebar %}
+                    <button type="button" id="sidebarCollapse" class="btn btn-light">
                         <i class="bi bi-list"></i>
                     </button>
-                    <div class="ms-auto">
-                        <span class="me-3">{{ request.user.username }}</span>
-                        <a href="{% url 'logout' %}" class="btn btn-outline-danger">Sair</a>
+                    {% else %}
+                    <!-- Título para quando a sidebar está escondida -->
+                    <h4 class="custom-navbar-title mb-0">
+                        <i class="bi bi-{% block page_icon %}folder{% endblock %} me-2"></i> {% block page_title %}{% endblock %}
+                    </h4>
+                    {% endif %}
+                    
+                    <!-- Área à direita da navbar -->
+                    <div class="navbar-actions ms-auto d-flex align-items-center">
+                        {% if hide_sidebar %}
+                        <!-- Botão de voltar quando a sidebar está escondida -->
+                        <a href="{% url 'home' %}" class="btn btn-outline-secondary btn-sm me-2">
+                            <i class="bi bi-arrow-left"></i> Voltar
+                        </a>
+                        {% endif %}
+                        
+                        <!-- Mantenha qualquer outro conteúdo da navbar à direita -->
+                        {% block navbar_right %}{% endblock %}
                     </div>
                 </div>
             </nav>
 
             <div class="container-fluid p-4">
-                {% if messages %}
-                    {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }}">
-                            {{ message }}
-                        </div>
-                    {% endfor %}
-                {% endif %}
-                
-                {% block content %}
-                {% endblock %}
+                {% block content %}{% endblock %}
             </div>
         </div>
     </div>
@@ -89,11 +121,30 @@
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script>
         $(document).ready(function () {
+            // Forçar a sidebar a ficar visível na inicialização
+            $('#sidebar').removeClass('collapsed');
+            
             $('#sidebarCollapse').on('click', function () {
-                $('#sidebar').toggleClass('collapsed');
+                toggleSidebar();
             });
+            
+            // Verificar se estamos em uma tela pequena para esconder a sidebar por padrão em mobile
+            if ($(window).width() < 768 && !$('body').hasClass('no-sidebar')) {
+                $('#sidebar').addClass('collapsed');
+            }
         });
+        
+        function toggleSidebar() {
+            $('#sidebar').toggleClass('collapsed');
+            
+            // Salvar a preferência do usuário (opcional)
+            if ($('#sidebar').hasClass('collapsed')) {
+                localStorage.setItem('sidebar_collapsed', 'true');
+            } else {
+                localStorage.setItem('sidebar_collapsed', 'false');
+            }
+        }
     </script>
-    {% block extra_js %} Teste {% endblock %}
+    {% block extra_js %}{% endblock %}
 </body>
 </html>

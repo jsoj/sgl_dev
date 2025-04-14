@@ -1,0 +1,76 @@
+<div class="card mt-4">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0">Placas 96 disponíveis no projeto</h5>
+    </div>
+    <div class="card-body">
+        {% if placas_96 %}
+            <form hx-post="{% url 'gerar_placas_384' %}" hx-target="#resultado-container" hx-indicator="#loading-indicator">
+                <input type="hidden" name="projeto_id" value="{{ projeto_id }}">
+                
+                <div class="mb-3">
+                    <label class="form-label">Selecione as placas 96 (selecione 4 placas para formar uma placa 384)</label>
+                    <div class="row">
+                        {% for placa in placas_96 %}
+                            <div class="col-md-3 mb-3">
+                                <div class="card placa-96" id="placa-{{ placa.id }}">
+                                    <div class="card-body">
+                                        <div class="form-check">
+                                            <input class="form-check-input placa-checkbox" 
+                                                   type="checkbox" 
+                                                   value="{{ placa.id }}" 
+                                                   id="placa-checkbox-{{ placa.id }}"
+                                                   name="placas_96[]"
+                                                   hx-on:click="managePlacaSelection(this)">
+                                            <label class="form-check-label" for="placa-checkbox-{{ placa.id }}">
+                                                {{ placa.nome }} ({{ placa.quadrante }})
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="nome_placa_384" class="form-label">Nome da placa 384</label>
+                    <input type="text" class="form-control" id="nome_placa_384" name="nome_placa_384" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" id="btn-gerar-placas" disabled>
+                    Gerar Placa 384
+                </button>
+            </form>
+        {% else %}
+            <div class="alert alert-warning">
+                Não foram encontradas placas 96 disponíveis neste projeto.
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    // Script para gerenciar seleção de placas (máximo de 4)
+    let selectedPlacasCount = 0;
+    const maxPlacas = 4;
+    
+    function managePlacaSelection(checkbox) {
+        const cardElement = document.getElementById('placa-' + checkbox.value);
+        
+        if (checkbox.checked) {
+            if (selectedPlacasCount < maxPlacas) {
+                selectedPlacasCount++;
+                cardElement.classList.add('placa-selecionada');
+            } else {
+                checkbox.checked = false;
+                return;
+            }
+        } else {
+            selectedPlacasCount--;
+            cardElement.classList.remove('placa-selecionada');
+        }
+
+        const btnGerarPlacas = document.getElementById('btn-gerar-placas');
+        btnGerarPlacas.disabled = selectedPlacasCount !== maxPlacas;
+    }
+</script>

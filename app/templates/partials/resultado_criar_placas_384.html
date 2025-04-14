@@ -1,0 +1,42 @@
+<div class="card mt-4">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0">Resultado da criação de placas 384</h5>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-success">
+            <h5>Operação concluída com sucesso!</h5>
+            <p>Foram processadas {{ placas_96_processadas }} placas 96.</p>
+            <p>Foram criadas {{ placas_384_criadas|length }} novas placas 384.</p>
+        </div>
+        
+        {% if placas_384_criadas %}
+            <h6 class="mt-4">Placas 384 criadas:</h6>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Projeto</th>
+                        <th>Criado em</th>
+                        <th>Criado por</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for placa in placas_384_criadas %}
+                        <tr>
+                            <td>{{ placa.codigo_placa }}</td>
+                            <td>{{ placa.projeto.codigo_projeto }}</td>
+                            <td>{{ placa.criado_em|date:"d/m/Y H:i" }}</td>
+                            <td>{{ placa.created_by.username }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <a href="{% url 'criar_placas_384_htmx' %}" class="btn btn-primary mt-3">
+                Criar mais placas 384
+            </a>
+        {% else %}
+            <p class="text-warning">Não foi possível criar nenhuma placa 384. Verifique se selecionou um número adequado de placas 96 (múltiplos de 4).</p>
+        {% endif %}
+    </div>
+</div>

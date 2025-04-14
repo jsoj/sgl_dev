@@ -1,0 +1,21 @@
+<div class="mt-3">
+    {% if projetos %}
+        <label for="projeto" class="form-label">Projeto</label>
+        <select 
+            class="form-select" 
+            id="projeto" 
+            name="projeto"
+            hx-get="{% url 'carregar_placas_por_projeto' %}"
+            hx-target="#placas-container"
+            hx-indicator="#loading-indicator"
+            hx-trigger="change"
+        >
+            <option value="">Selecione um projeto</option>
+            {% for projeto in projetos %}
+                <option value="{{ projeto.id }}">{{ projeto.codigo_projeto }}</option>
+            {% endfor %}
+        </select>
+    {% else %}
+        <p class="text-warning">Nenhum projeto disponível para esta empresa.</p>
+    {% endif %}
+</div>
