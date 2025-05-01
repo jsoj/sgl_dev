@@ -1,5 +1,4 @@
-# views.py
-
+from .models import Empresa, Projeto, Placa96, Placa384
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.contrib.auth.decorators import login_required
@@ -10,16 +9,17 @@ from django.core.exceptions import ValidationError, PermissionDenied
 from django.http import JsonResponse, HttpResponse
 import logging
 from django.contrib import admin
-
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
-from .models import Placa384, Projeto, Placa96, Empresa, Placa1536
 from .forms import TransferPlacasForm
 from .serializers import GroupSerializer, UserSerializer
+from django.contrib.admin.views.decorators import staff_member_required
+from .models import Placa384, Projeto, Placa96, Empresa, Placa1536, ResultadoUpload384, Placa1536
+from .servico import processar_arquivo_384
+from . import generate_project_pdf  # Importa a função que corrigimos
 
 User = get_user_model()
 
@@ -51,7 +51,6 @@ class ProtectedView(APIView):
 
     def get(self, request):
         return Response({"message": "Bem-vindo, você está autenticado!"})
-
 
 
 @login_required
@@ -124,16 +123,6 @@ def transferir_96_384(request):
     
     return render(request, 'admin/app/placa384/transferir_96_384.html', context)
 
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from django.http import JsonResponse
-from django.db import transaction
-from django.core.exceptions import ValidationError
-from .models import Empresa, Projeto, Placa96, Placa384
-import logging
-
-logger = logging.getLogger(__name__)
 
 @login_required
 def home(request):
@@ -289,11 +278,27 @@ def carregar_placas_por_projeto(request):
     })
 
 
-# views.py
-
-from django.http import JsonResponse
-from django.contrib.admin.views.decorators import staff_member_required
-from .models import Placa1536
+@staff_member_required
+def processar_arquivo_384(request, object_id):
+    try:
+        logger.info(f"View processar_arquivo_384 chamada para ID: {object_id}")
+        
+        from app.servicos import processar_arquivo_genotipagem
+        stats = processar_arquivo_genotipagem(object_id)
+        
+        mensagem = (
+            f"Arquivo processado com sucesso. "
+            f"Total de registros: {stats['total_registros']}, "
+            f"Registros criados: {stats['registros_criados']}, "
+            f"Registros duplicados: {stats['registros_duplicados']}"
+        )
+        messages.success(request, mensagem)
+        
+    except Exception as e:
+        logger.exception(f"Erro ao processar arquivo ID {object_id}: {str(e)}")
+        messages.error(request, f"Erro ao processar arquivo: {str(e)}")
+    
+    return redirect("admin:app_resultadoupload384_changelist")
 
 @staff_member_required
 def get_placas_1536(request, projeto_id):
@@ -314,21 +319,3 @@ def get_placas_1536(request, projeto_id):
         ).values('id', 'codigo_placa')
     
     return JsonResponse(list(placas), safe=False)
-
-# urls.py
-
-from django.urls import path
-from . import views
-
-urlpatterns = [
-    path(
-        'admin/api/placas-1536/<int:projeto_id>/',
-        views.get_placas_1536,
-        name='api-placas-1536'
-    ),
-    path(
-        'htmx/carregar-placas-por-projeto/',
-        views.carregar_placas_por_projeto,
-        name='carregar-placas-por-projeto'
-    ),
-]

@@ -485,7 +485,7 @@
         qtdAmostras.addEventListener('change', function() {
             if (this.value) {
                 // Arredonda para cima divisão por 96
-                const placas = Math.ceil(parseInt(this.value) / 96);
+                const placas = Math.ceil(parseInt(this.value) / 90);
                 numPlacas.value = placas;
             }
         });

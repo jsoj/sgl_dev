@@ -211,7 +211,7 @@ def generate_project_pdf(projeto):
     
     # Marcadores Customizados
     elements.append(Paragraph("<b>Marcadores Customizados:</b>", styles['Heading3']))
-    statusstatusstatus
+    
     try:    
         # Forçar avaliação da query para marcadores customizados                                        
         customs = list(projeto.marcador_customizado.all())
@@ -226,34 +226,40 @@ def generate_project_pdf(projeto):
                 ('BACKGROUND', (0, 0), (1, 0), colors.lightgrey),
                 ('TEXTCOLOR', (0, 0), (1, 0), colors.black),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),ão definida"],
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),   ["Data de Envio", projeto.data_envio.strftime("%d/%m/%Y") if projeto.data_envio else "Não realizado"],
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)    ["Data Planejada de Liberação", projeto.data_planejada_liberacao_resultados.strftime("%d/%m/%Y") if projeto.data_planejada_liberacao_resultados else "Não definida"],
-            ]))tório", projeto.data_recebimento_laboratorio.strftime("%d/%m/%Y") if projeto.data_recebimento_laboratorio else "Não recebido"],
-            elements.append(custom_table)resultados.strftime("%d/%m/%Y") if projeto.data_liberacao_resultados else "Não liberado"],
-        else:d/%m/%Y") if projeto.data_validacao_cliente else "Não validado"],
-            elements.append(Paragraph("Nenhum marcador customizado selecionado", styles['Normal']))ista_destruicao.strftime("%d/%m/%Y") if projeto.data_prevista_destruicao else "Não definida"],
-    except Exception as e: if projeto.data_destruicao else "Não realizada"],
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+            ]))
+            elements.append(custom_table)
+        else:
+            elements.append(Paragraph("Nenhum marcador customizado selecionado", styles['Normal']))
+    except Exception as e:
         logger.error(f"Erro ao processar marcadores customizados: {e}")
         elements.append(Paragraph(f"Erro ao processar marcadores customizados: {str(e)}", styles['Normal']))
-    # Adicionar mais datas se existirem
-    elements.append(Spacer(1, 0.2*inch))ta_extracao') and projeto.data_extracao:
-    ta_extracao.strftime("%d/%m/%Y")])
-    # Status e Etapacr') and projeto.data_pcr:
-    elements.append(Paragraph("Status do Projeto", section_style)).strftime("%d/%m/%Y")])
-    .data_analise_dados:
-    status_data = []os", projeto.data_analise_dados.strftime("%d/%m/%Y")])
+    
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Status e Etapa
+    elements.append(Paragraph("Status do Projeto", section_style))
+    
+    status_data = []
     if projeto.status:
         status_data.append(["Status:", projeto.status.nome])
     if projeto.etapa:
         status_data.append(["Etapa:", projeto.etapa.nome])
-     ('BACKGROUND', (0, 0), (1, 0), colors.grey),
-        ('TEXTCOLOR', (0, 0), (1, 0), colors.whitesmoke),
-    # Cronograma(-1, -1), 'LEFT'),
-    elements.append(Paragraph("Cronograma", section_style))lvetica-Bold'),
-    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-    # Tabela com as datasUND', (0, 1), (-1, -1), colors.beige),
-    data = [1, -1), 1, colors.black)
+    
+    if status_data:
+        elements.append(create_info_table(status_data))
+    else:
+        elements.append(Paragraph("Nenhuma informação de status disponível", styles['Normal']))
+    
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Cronograma
+    elements.append(Paragraph("Cronograma", section_style))
+    
+    # Tabela com as datas
+    data = [
         ["Data", "Valor"],
         ["Data Planejada de Envio", projeto.data_planejada_envio.strftime("%d/%m/%Y") if projeto.data_planejada_envio else "Não definida"],
         ["Data de Envio", projeto.data_envio.strftime("%d/%m/%Y") if projeto.data_envio else "Não realizado"],
@@ -261,66 +267,58 @@ def generate_project_pdf(projeto):
         ["Data de Recebimento no Laboratório", projeto.data_recebimento_laboratorio.strftime("%d/%m/%Y") if projeto.data_recebimento_laboratorio else "Não recebido"],
         ["Data de Liberação de Resultados", projeto.data_liberacao_resultados.strftime("%d/%m/%Y") if projeto.data_liberacao_resultados else "Não liberado"],
         ["Data de Validação pelo Cliente", projeto.data_validacao_cliente.strftime("%d/%m/%Y") if projeto.data_validacao_cliente else "Não validado"],
-        ["Data Prevista de Destruição", projeto.data_prevista_destruicao.strftime("%d/%m/%Y") if projeto.data_prevista_destruicao else "Não definida"],tion_style))
+        ["Data Prevista de Destruição", projeto.data_prevista_destruicao.strftime("%d/%m/%Y") if projeto.data_prevista_destruicao else "Não definida"],
         ["Data de Destruição", projeto.data_destruicao.strftime("%d/%m/%Y") if projeto.data_destruicao else "Não realizada"],
-    ]rmal'],
+    ]
     
     # Adicionar mais datas se existirem
-    if hasattr(projeto, 'data_extracao') and projeto.data_extracao:                                  spaceAfter=10,
-        data.append(["Data de Extração", projeto.data_extracao.strftime("%d/%m/%Y")])                          spaceBefore=10,
-    if hasattr(projeto, 'data_pcr') and projeto.data_pcr:Width=1,
-        data.append(["Data de PCR", projeto.data_pcr.strftime("%d/%m/%Y")]).grey,
-    if hasattr(projeto, 'data_analise_dados') and projeto.data_analise_dados:Padding=10,
+    if hasattr(projeto, 'data_extracao') and projeto.data_extracao:
+        data.append(["Data de Extração", projeto.data_extracao.strftime("%d/%m/%Y")])
+    if hasattr(projeto, 'data_pcr') and projeto.data_pcr:
+        data.append(["Data de PCR", projeto.data_pcr.strftime("%d/%m/%Y")])
+    if hasattr(projeto, 'data_analise_dados') and projeto.data_analise_dados:
         data.append(["Data de Análise de Dados", projeto.data_analise_dados.strftime("%d/%m/%Y")])
-    nt_style))
+    
     # Criar tabela de datas
     table = Table(data, colWidths=[3*inch, 2*inch])
     table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (1, 0), colors.grey),                            parent=styles['Normal'],
-        ('TEXTCOLOR', (0, 0), (1, 0), colors.whitesmoke),       fontSize=8, 
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),         textColor=colors.grey,
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),     alignment=1)  # Centralizado
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),d(Spacer(1, 0.5*inch))
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),elements.append(Paragraph(f"Documento gerado automaticamente em {projeto.data_alteracao.strftime('%d/%m/%Y')}", footer_style))
-        ('GRID', (0, 0), (-1, -1), 1, colors.black)ppend(Paragraph("© Agromarkers - Todos os direitos reservados", footer_style))
-    ]))    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    return pdf        buffer.close()    pdf = buffer.getvalue()    doc.build(elements)    # Construir documento        elements.append(Paragraph("© Agromarkers - Todos os direitos reservados", footer_style))    elements.append(Paragraph(f"Documento gerado automaticamente em {projeto.data_alteracao.strftime('%d/%m/%Y')}", footer_style))    elements.append(Spacer(1, 0.5*inch))                                alignment=1)  # Centralizado                                textColor=colors.grey,                                fontSize=8,                                 parent=styles['Normal'],    footer_style = ParagraphStyle('Footer',     # Rodapé            elements.append(Paragraph(projeto.comentarios, comment_style))                                      borderRadius=5)                                      borderPadding=10,                                      borderColor=colors.grey,                                      borderWidth=1,                                      spaceBefore=10,                                      spaceAfter=10,                                      rightIndent=20,                                      leftIndent=20,                                      parent=styles['Normal'],        comment_style = ParagraphStyle('Comment',         elements.append(Paragraph("Comentários", section_style))    if projeto.comentarios:    # Comentários            elements.append(Spacer(1, 0.25*inch))    elements.append(table)        # Construir documento
+        ('BACKGROUND', (0, 0), (1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    elements.append(table)
+    elements.append(Spacer(1, 0.25*inch))
+    
+    # Comentários
+    if projeto.comentarios:
+        elements.append(Paragraph("Comentários", section_style))
+        comment_style = ParagraphStyle('Comment',
+                                      parent=styles['Normal'],
+                                      leftIndent=20,
+                                      rightIndent=20,
+                                      spaceAfter=10,
+                                      spaceBefore=10,
+                                      borderWidth=1,
+                                      borderColor=colors.grey,
+                                      borderPadding=10,
+                                      borderRadius=5)
+        elements.append(Paragraph(projeto.comentarios, comment_style))
+    
+    # Rodapé
+    footer_style = ParagraphStyle('Footer',
+                                parent=styles['Normal'],
+                                fontSize=8,
+                                textColor=colors.grey,
+                                alignment=1)  # Centralizado
+    elements.append(Spacer(1, 0.5*inch))
+    elements.append(Paragraph(f"Documento gerado automaticamente em {projeto.data_alteracao.strftime('%d/%m/%Y')}", footer_style))
+    elements.append(Paragraph("© Agromarkers - Todos os direitos reservados", footer_style))
+    
+    # Construir documento
     doc.build(elements)
     pdf = buffer.getvalue()
     buffer.close()

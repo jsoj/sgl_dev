@@ -19,7 +19,9 @@ from .home_views import home
 from .project_views import criar_projeto
 
 # Importar views de placas (tradicional, sem HTMX)
-from .placa384_views import criar_placa_384
+from .placa384_views import criar_placa_384, processar_arquivo_384_view
 
 from .project_views import criar_projeto
 from .project_views import projetos_lista, projetos_lista_parcial, projetos_acoes
+from .projeto_pdf_views import projeto_pdf_view, generate_project_pdf
+from .projeto_pdf_views import projeto_pdf_download

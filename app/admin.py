@@ -1,13 +1,16 @@
+from django.urls import reverse
+from django.utils.safestring import mark_safe
+from .models import ResultadoAmostra384, ResultadoUpload384 
 from django.db import transaction  # Adicionando esta importação
-from .forms import TransferPlacasForm, Transfer384to384Form, Transfer384to1536Form, ResultadoAmostra, ResultadoUploadForm# Adicione esta importação no início do arquivo
+from .forms import TransferPlacasForm, Transfer384to384Form, Transfer384to1536Form, ResultadoAmostra1536, ResultadoUpload1536Form# Adicione esta importação no início do arquivo
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth import get_user_model
 from django.db.models import Q
-from app.models import ( Tecnologia, Cultivo, MarcadorTrait, MarcadorCustomizado, Projeto, Status, 
-                        Etapa, User,  Amostra, Placa96, 
+from .models import ( ResultadoUpload384, Tecnologia, Cultivo, MarcadorTrait, MarcadorCustomizado, Projeto, Status, 
+                        Etapa, User,  Amostra, Placa96, ResultadoUpload384, ResultadoAmostra384,
                         Placa384, Placa1536, Empresa,  Poco96, Poco384, Poco1536,    
-                        PlacaMap384, PlacaMap1536, ResultadoAmostra, ResultadoUpload, PlacaMap384to384)
+                        PlacaMap384, PlacaMap1536, ResultadoAmostra1536, ResultadoUpload1536, PlacaMap384to384)
 
 from django.shortcuts import render, redirect
 from django.contrib import messages
@@ -19,15 +22,19 @@ from django.contrib.auth.models import Group
 from django.contrib.auth.admin import GroupAdmin
 from import_export.admin import ImportExportModelAdmin
 from django.utils.html import format_html  # Adicionando a importação necessária
-from .servico import ResultadoProcessor
 from import_export import resources, fields
 from import_export.widgets import ForeignKeyWidget
-from django.urls import path
+from django.urls import path, reverse
 import csv
-from django.core.exceptions import ValidationError
-
 
 import logging
+import traceback
+
+from django.http import HttpResponseRedirect
+from .servico import processar_arquivo_384
+
+
+
 logger = logging.getLogger(__name__)
 
 #-----------------------------------------------
@@ -234,8 +241,10 @@ class CustomAdminSite(AdminSite):
             },
             'Resultados': {
                 'models': {
-                    'Upload de Resultados': 'app.resultadoupload',
-                    'Resultados por Amostra': 'app.resultadoamostra',
+                    'Upload de Resultados 1536': 'app.resultadoupload',
+                    'Resultados por Amostra 1536': 'app.resultadoamostra1536',
+                    'Upload de Resultados 384': 'app.ResultadoUpload384',
+                    'Resultados por Amostra 384': 'app.ResultadoAmostra384',
                 },
             },
             'Cadastros': {
@@ -252,7 +261,6 @@ class CustomAdminSite(AdminSite):
             'Configurações': {
                 'models': {
                     'Grupos de Usuários': 'auth.group',
-                    # 'Temas da Interface': 'admin_interface.theme',
                 },
             }
         }
@@ -400,8 +408,8 @@ class PlacaMap1536Inline(admin.TabularInline):
     extra = 1
     autocomplete_fields = ['placa_origem']
 
-class ResultadoAmostraInline(admin.TabularInline):
-    model = ResultadoAmostra
+class ResultadoAmostra1536Inline(admin.TabularInline):
+    model = ResultadoAmostra1536
     fields = ('amostra', 'resultado_fh', 'resultado_aj', 'data_processamento')
     readonly_fields = ('amostra', 'resultado_fh', 'resultado_aj', 'data_processamento')
     can_delete = False
@@ -922,7 +930,7 @@ class Poco384Resource(resources.ModelResource):
 
 class Poco96Admin(EmpresaAdminMixin, ImportExportModelAdmin):
     resource_class = Poco96Resource
-    list_display = ('empresa', 'empresa__nome', 'amostra__projeto__codigo_projeto', 'amostra__projeto__nome_projeto_cliente', 'placa', 'posicao', 'amostra')
+    list_display = ('empresa__codigo', 'empresa__nome', 'amostra__projeto__codigo_projeto', 'amostra__projeto__nome_projeto_cliente', 'placa', 'posicao', 'amostra')
     list_display_links = ['posicao']
     list_filter = (EmpresaFilter, ProjetoFilterPoco, PlacaFilterPoco)
     search_fields = ('placa__codigo_placa', 'posicao', 'amostra__codigo_amostra')
@@ -936,7 +944,7 @@ class Poco96Admin(EmpresaAdminMixin, ImportExportModelAdmin):
 
 class Poco384Admin(EmpresaAdminMixin, ImportExportModelAdmin):
     resource_class = Poco384Resource
-    list_display = ('empresa', 'empresa__nome', 'amostra__projeto__codigo_projeto', 'amostra__projeto__nome_projeto_cliente', 'placa', 'posicao', 'amostra')
+    list_display = ('empresa__codigo', 'empresa__nome', 'amostra__projeto__codigo_projeto', 'amostra__projeto__nome_projeto_cliente', 'placa', 'posicao', 'amostra')
     list_display_links = ['posicao']
     list_filter = (EmpresaFilter, ProjetoFilterPoco, PlacaFilterPoco)
     search_fields = ('placa__codigo_placa', 'posicao', 'amostra__codigo_amostra')
@@ -971,8 +979,7 @@ class Poco1536Admin(EmpresaAdminMixin, ImportExportModelAdmin):
     placa_model = Placa1536
 
 
-#-----------------------------------------------
-# Cadastros
+########### Cadastros
 
 class ModeloBaseAdmin(admin.ModelAdmin):
     """Classe base para administração de modelos com campo is_active"""
@@ -1024,9 +1031,9 @@ class EtapaAdmin(ModeloBaseAdmin):
 #-----------------------------------------------
 # Resultados 
 
-class ResultadoUploadForm(forms.ModelForm):
+class ResultadoUpload1536Form(forms.ModelForm):
     class Meta:
-        model = ResultadoUpload
+        model = ResultadoUpload1536
         fields = ['projeto', 'placa_1536', 'arquivo', 'marcador_fh', 'marcador_aj']
         widgets = {
             'projeto': forms.Select(attrs={'class': 'select2'}),
@@ -1063,7 +1070,7 @@ class ResultadoUploadForm(forms.ModelForm):
                 )
             
             # Verificar se já existe um upload não processado para esta placa
-            if ResultadoUpload.objects.filter(
+            if ResultadoUpload1536.objects.filter(
                 placa_1536=placa_1536,
                 processado=False
             ).exists():
@@ -1080,9 +1087,9 @@ class ResultadoUploadForm(forms.ModelForm):
         
         return cleaned_data
 
-class ResultadoUploadAdmin(EmpresaAdminMixin, admin.ModelAdmin):
-    form = ResultadoUploadForm
-    inlines = [ResultadoAmostraInline]
+class ResultadoUpload1536Admin(EmpresaAdminMixin, admin.ModelAdmin):
+    form = ResultadoUpload1536Form
+    inlines = [ResultadoAmostra1536Inline]
     
     list_display = (
         'empresa',
@@ -1147,7 +1154,7 @@ class ResultadoUploadAdmin(EmpresaAdminMixin, admin.ModelAdmin):
     get_status_processamento.admin_order_field = 'processado'
 
     def get_contagem_resultados(self, obj):
-        count = obj.resultadoamostra_set.count()
+        count = obj.resultadoamostra1536_set.count()
         return f"{count} resultados"
     get_contagem_resultados.short_description = 'Resultados'
     
@@ -1174,7 +1181,7 @@ class ResultadoUploadAdmin(EmpresaAdminMixin, admin.ModelAdmin):
     def process_upload(self, request, upload_id):
         try:
             processor = ResultadoProcessor(upload_id)
-            stats = processor.process_file()
+            stats = processor.process()
             
             messages.success(
                 request,
@@ -1188,16 +1195,16 @@ class ResultadoUploadAdmin(EmpresaAdminMixin, admin.ModelAdmin):
                 f'Erro ao processar arquivo: {str(e)}'
             )
         
-        return redirect('admin:app_resultadoupload_changelist')
+        return redirect('admin:app_resultadoupload1536_changelist')
 
     def save_model(self, request, obj, form, change):
         if not change:  # Apenas para novos registros
             obj.empresa = request.user.empresa if not request.user.is_superuser else obj.projeto.empresa
         super().save_model(request, obj, form, change)
 
-class ResultadoAmostraResource(resources.ModelResource):
+class ResultadoAmostra1536Resource(resources.ModelResource):
     """
-    Resource para importação e exportação de ResultadoAmostra
+    Resource para importação e exportação de ResultadoAmostra1536
     """
     # Campos da Empresa
     empresa_codigo = fields.Field(
@@ -1279,7 +1286,7 @@ class ResultadoAmostraResource(resources.ModelResource):
         column_name='Poço 1536')  # Declarando o campo    
 
     class Meta:
-        model = ResultadoAmostra
+        model = ResultadoAmostra1536
         fields = (
             'id',
             'empresa_codigo',
@@ -1317,11 +1324,11 @@ class ResultadoAmostraResource(resources.ModelResource):
             print(f"Erro ao buscar posição do poço 1536: {e}")
             return '-'
 
-class ResultadoAmostraAdmin(ImportExportModelAdmin):
+class ResultadoAmostra1536Admin(ImportExportModelAdmin):
     """
-    Admin customizado para ResultadoAmostra com recursos de importação/exportação
+    Admin customizado para ResultadoAmostra1536 com recursos de importação/exportação
     """
-    resource_class = ResultadoAmostraResource
+    resource_class = ResultadoAmostra1536Resource
     
     # Campos mostrados na listagem
     list_display = (
@@ -1413,6 +1420,188 @@ class ResultadoAmostraAdmin(ImportExportModelAdmin):
         """
         return False
 
+
+#-----------------------------------------------
+# UPLOADS E TRATAMETNO RESULTADOS PLACA 384 PHERASTAR  
+
+
+
+class ResultadoAmostra384Resource(resources.ModelResource):
+    """
+    Resource for import and export of ResultadoAmostra384
+    """
+    class Meta:
+        model = ResultadoAmostra384
+        fields = (
+            'id',
+            'empresa',
+            'projeto',
+            'placa_384',
+            'poco_placa_384',
+            'teste',
+            'resultado',
+            'x',
+            'y',
+            'chave',
+            'arquivo_upload'
+        )
+        export_order = fields
+        import_id_fields = ['id']
+        skip_unchanged = True
+        report_skipped = False
+
+class ResultadoAmostra384Admin(ImportExportModelAdmin):
+    resource_class = ResultadoAmostra384Resource
+   
+    # Include all fields from the model in list_display
+    list_display = (
+        'id',
+        'empresa',
+        'projeto',
+        'placa_384',
+        'poco_placa_384',
+        'teste',
+        'resultado',
+        'x',
+        'y',
+        'chave',
+        'arquivo_upload'
+    )
+   
+    list_filter = ('teste', 'resultado', 'arquivo_upload')
+    search_fields = ('placa_384', 'poco_placa_384', 'chave', 'empresa', 'projeto')
+    readonly_fields = ('chave',)
+   
+    fieldsets = (
+        ('Informações de Identificação', {
+            'fields': ('arquivo_upload', 'empresa', 'projeto')
+        }),
+        ('Informações da Placa', {
+            'fields': ('placa_384', 'poco_placa_384', 'teste')
+        }),
+        ('Resultados', {
+            'fields': ('resultado', 'x', 'y')
+        }),
+        ('Metadados', {
+            'fields': ('chave',),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def get_queryset(self, request):
+        """
+        Optimize queries using select_related for related fields
+        Only include valid relational fields
+        """
+        return super().get_queryset(request).select_related(
+            'arquivo_upload'  # Only include this field as it's the only valid relational field
+        )
+
+# Registrar o modelo e sua classe de administração
+admin.site.register(ResultadoAmostra384, ResultadoAmostra384Admin)
+
+class ResultadoUpload384Admin(admin.ModelAdmin):
+    list_display = ('id', 'projeto', 'empresa', 'data_upload', 'processado', 'data_processamento', 'botao_processar')
+    list_filter = ('processado', 'empresa', 'projeto')
+    search_fields = ('empresa__nome', 'projeto__codigo_projeto')
+    readonly_fields = ('data_upload', 'processado', 'data_processamento')
+    actions = ['processar_selecionados']
+    
+    fieldsets = (
+        ('Informações do Upload', {
+            'fields': ('empresa', 'projeto', 'arquivo')
+        }),
+        ('Status de Processamento', {
+            'fields': ('processado', 'data_upload', 'data_processamento'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def botao_processar(self, obj):
+        """
+        Exibe um botão para processar o arquivo se ele ainda não foi processado.
+        """
+        if not obj.processado:
+            return mark_safe(f'<a class="button" href="{reverse("admin:processar_arquivo", args=[obj.id])}">Processar</a>')
+        return "Já processado"
+    botao_processar.short_description = "Processar"
+    botao_processar.allow_tags = True
+    
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                'processar/<int:upload_id>/',
+                self.admin_site.admin_view(self.processar_view),
+                name='processar_arquivo',
+            ),
+        ]
+        return custom_urls + urls
+    
+    def processar_view(self, request, upload_id):
+        """
+        View para processar um arquivo de upload.
+        """
+        try:
+            from .servico import process_upload
+            
+            # Processar o arquivo
+            stats = process_upload(upload_id)
+            
+            # Adicionar mensagem de sucesso
+            self.message_user(
+                request, 
+                f"Arquivo processado com sucesso. Registros criados: {stats.get('registros_criados', 0)}", 
+                messages.SUCCESS
+            )
+        except Exception as e:
+            # Adicionar mensagem de erro
+            self.message_user(
+                request,
+                f"Erro ao processar o arquivo: {str(e)}",
+                messages.ERROR
+            )
+        
+        # Redirecionar de volta para a lista
+        return HttpResponseRedirect(reverse("admin:app_resultadoupload384_changelist"))
+        
+    def processar_selecionados(self, request, queryset):
+        """
+        Ação para processar múltiplos arquivos selecionados.
+        """
+        count = 0
+        errors = 0
+        
+        for upload in queryset.filter(processado=False):
+            try:
+                from .servico import process_upload
+                stats = process_upload(upload.id)
+                count += 1
+            except Exception as e:
+                errors += 1
+                self.message_user(
+                    request,
+                    f"Erro ao processar o arquivo ID {upload.id}: {str(e)}",
+                    messages.ERROR
+                )
+        
+        if count > 0:
+            self.message_user(
+                request,
+                f"{count} arquivo(s) processado(s) com sucesso.",
+                messages.SUCCESS
+            )
+        
+        if errors > 0:
+            self.message_user(
+                request,
+                f"{errors} arquivo(s) não puderam ser processados. Verifique os erros acima.",
+                messages.WARNING
+            )
+    
+    processar_selecionados.short_description = "Processar arquivos selecionados"
+
+
 #-----------------------------------------------
 # Ordem correta de registros
 
@@ -1435,6 +1624,8 @@ admin_site.register(MarcadorTrait, MarcadorTraitAdmin)
 admin_site.register(MarcadorCustomizado, MarcadorCustomizadoAdmin)
 admin_site.register(Status, StatusAdmin)
 admin_site.register(Etapa, EtapaAdmin)
-admin_site.register(ResultadoUpload, ResultadoUploadAdmin)
-admin_site.register(ResultadoAmostra, ResultadoAmostraAdmin)
+admin_site.register(ResultadoUpload1536, ResultadoUpload1536Admin)
+admin_site.register(ResultadoAmostra1536, ResultadoAmostra1536Admin)
+admin_site.register(ResultadoUpload384, ResultadoUpload384Admin)
+admin_site.register(ResultadoAmostra384, ResultadoAmostra384Admin)
 

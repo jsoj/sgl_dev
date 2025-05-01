@@ -53,14 +53,13 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',  # Certifique-se que esta linha existe
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # 'django_csp.middleware.CSPMiddleware',  # Adicione esta linha se não existir
 ]
 
-CSRF_COOKIE_SECURE = False  # Temporariamente para testes
+CSRF_COOKIE_SECURE = False  # Em produção, deve ser True
 ROOT_URLCONF = 'SGL.urls'
 
 # # CSP Settings
@@ -290,5 +289,12 @@ EMAIL_TIMEOUT = 60  # tempo limite em segundos
 EMAIL_SUBJECT_PREFIX = '[Agromarkers] '  # prefixo para assuntos de emails
 EMAIL_DEBUG = True  # ativar logs detalhados de email
 
-CONTROL_WELL_POSITIONS = ['A01', 'B01', 'C01', 'D01','E01','F01']
+# Configurações de poços de controle - mantido para compatibilidade com código legado
+CONTROL_WELL_CONFIGS = {
+    'CONFIG_1': ['A01', 'B01', 'C01', 'D01', 'E01', 'F01'],
+    'CONFIG_2': ['A01', 'B01', 'C01', 'D01']
+}
 
+DEFAULT_CONTROL_WELLS = 'CONFIG_1'
+
+CONTROL_WELL_POSITIONS = ['A01', 'B01', 'C01', 'D01', 'E01', 'F01']
