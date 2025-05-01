@@ -3,7 +3,7 @@
 
 ### Objetivo
 
-Gerencias os aspectos operacionais de uma laboratório de bioteconologia, através de metodologia de gerenciamento de projetos, principalmente para controle e rastreabilidade de amostras durante as diversas fases do projeto. 
+Gerencias os aspectos operacionais de um laboratório de bioteconologia, através de metodologia de gerenciamento de projetos, principalmente para controle e rastreabilidade de amostras durante as diversas fases do projeto. 
 
 ### Funcionalidades. 
 
