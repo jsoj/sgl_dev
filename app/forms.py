@@ -2,7 +2,7 @@
 from django.db import models, transaction  # Adicione transaction aqui
 from django import forms
 from django.core.exceptions import ValidationError
-from .models import Empresa, Projeto, Placa96, Placa384, PlacaMap384to384, Placa1536, ResultadoUpload, ResultadoAmostra
+from .models import Empresa, Projeto, Placa96, Placa384, PlacaMap384to384, Placa1536, ResultadoUpload1536, ResultadoAmostra1536
 from django.contrib import admin
 from django.contrib import messages
 from django.db.models import Count
@@ -464,9 +464,9 @@ class Transfer384to1536Form(forms.Form):
         return cleaned_data
 
 
-class ResultadoUploadForm(forms.ModelForm):
+class ResultadoUpload1536Form(forms.ModelForm):
     class Meta:
-        model = ResultadoUpload
+        model = ResultadoUpload1536
         fields = ['projeto', 'placa_1536', 'arquivo', 'marcador_fh', 'marcador_aj']
         widgets = {
             'projeto': forms.Select(attrs={'class': 'select2'}),
@@ -501,7 +501,7 @@ class ResultadoUploadForm(forms.ModelForm):
                 )
             
             # Verificar se já existe um upload não processado para esta placa
-            if ResultadoUpload.objects.filter(
+            if ResultadoUpload1536.objects.filter(
                 placa_1536=placa_1536,
                 processado=False
             ).exists():

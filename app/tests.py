@@ -6,7 +6,7 @@ from django.db import transaction
 from .models import (
     Empresa, Projeto, Placa96, Placa384,
     Amostra, Poco96, Poco384, PlacaMap384, Status,
-    Cultivo, Tecnologia, Marcador, Protocolo, Etapa
+    Cultivo, Tecnologia, MarcadorTrait,  Etapa
 )
 import datetime
 
@@ -35,28 +35,24 @@ class BaseTestCase(TestCase):
 
         # Criar objetos básicos necessários
         self.status = Status.objects.create(
-            nome="Em Andamento",
-            empresa=self.empresa
+            nome="Em Andamento"
+
         )
         
         self.cultivo = Cultivo.objects.create(
-            nome="Soja",
-            empresa=self.empresa
+            nome="Soja"
+
         )
         
         self.tecnologia = Tecnologia.objects.create(
-            nome="Test Tech",
-            empresa=self.empresa
+            nome="Test Tech"
+
         )
 
-        self.protocolo = Protocolo.objects.create(
-            nome="Protocolo Teste",
-            empresa=self.empresa
-        )
 
         self.etapa = Etapa.objects.create(
-            nome="Etapa Teste",
-            empresa=self.empresa
+            nome="Etapa Teste"
+
         )
 
         self.client = Client()
@@ -71,7 +67,6 @@ class ProjetoTests(BaseTestCase):
             cultivo=self.cultivo,
             status=self.status,
             tecnologia=self.tecnologia,
-            protocolo=self.protocolo,
             etapa=self.etapa
         )
 
@@ -96,7 +91,6 @@ class ProjetoTests(BaseTestCase):
             codigo_projeto="002",
             quantidade_amostras=100,
             status=self.status,
-            protocolo=self.protocolo,
             etapa=self.etapa,
             cultivo=self.cultivo,
             data_envio=datetime.date(2024, 1, 1)
@@ -117,7 +111,6 @@ class PlacaTransferTests(BaseTestCase):
             codigo_projeto="001",
             quantidade_amostras=96,
             status=self.status,
-            protocolo=self.protocolo,
             etapa=self.etapa,
             cultivo=self.cultivo
         )
@@ -199,7 +192,6 @@ class ApiTests(BaseTestCase):
             codigo_projeto="001",
             quantidade_amostras=96,
             status=self.status,
-            protocolo=self.protocolo,
             etapa=self.etapa,
             cultivo=self.cultivo
         )
@@ -228,7 +220,6 @@ class SecurityTests(BaseTestCase):
             codigo_projeto="001",
             quantidade_amostras=96,
             status=self.status,
-            protocolo=self.protocolo,
             etapa=self.etapa,
             cultivo=self.cultivo
         )
@@ -279,7 +270,7 @@ class SecurityTests(BaseTestCase):
             codigo_projeto="001",
             quantidade_amostras=96,
             status=self.status,
-            protocolo=self.protocolo,
+            
             etapa=self.etapa,
             cultivo=self.cultivo
         )

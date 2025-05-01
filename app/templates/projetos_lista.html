@@ -129,130 +129,124 @@
   </div>
 </div>
 
-<!-- Área de filtros - 6 colunas lado a lado -->
-<div class="row mb-3">
-  <div class="col-12">
-    <div class="card">
-      <div class="card-header bg-light">
-        <h6 class="mb-0"><i class="bi bi-funnel me-2"></i>Filtros</h6>
+<!-- Bloco de filtros recolhível - modificado para estar recolhido por padrão -->
+ 
+<div class="card mb-3 shadow-sm">
+  <div class="card-header bg-light d-flex justify-content-between align-items-center py-2" 
+       style="cursor: pointer;" 
+       onclick="toggleFilters()">
+    <div>
+      <i class="bi bi-funnel"></i> Filtros
+    </div>
+    <div>
+      <i id="filter-toggle-icon" class="bi bi-chevron-up"></i>
+    </div>
+  </div>
+  <div class="card-body py-3" id="filter-content" style="display: none;">
+    <div class="row">
+      <div class="col-md-10">
+        <div class="row row-cols-2 row-cols-md-5 g-3">
+          <!-- Filtro Empresa -->
+          <div class="col">
+            <label class="form-label small mb-1">Empresa</label>
+            <select name="empresa" class="form-select form-select-sm" 
+                    hx-get="{% url 'projetos_lista_parcial' %}" 
+                    hx-target="#projetos-content" 
+                    hx-indicator="#loading-indicator"
+                    hx-push-url="true">
+              <option value="">-- Todas --</option>
+              {% for empresa_obj in empresas %}
+              <option value="{{ empresa_obj.id }}" {% if empresa_filter == empresa_obj.id|stringformat:"s" %}selected{% endif %}>{{ empresa_obj.nome }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          
+          <!-- Filtro Projeto -->
+          <div class="col">
+            <label class="form-label small mb-1">Projeto</label>
+            <select name="projeto" class="form-select form-select-sm" 
+                    hx-get="{% url 'projetos_lista_parcial' %}" 
+                    hx-target="#projetos-content" 
+                    hx-indicator="#loading-indicator"
+                    hx-push-url="true">
+              <option value="">-- Todos --</option>
+              {% for projeto_obj in projetos_distinct %}
+              <option value="{{ projeto_obj.id }}" {% if projeto_filter == projeto_obj.id|stringformat:"s" %}selected{% endif %}>{{ projeto_obj.codigo_projeto }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          
+          <!-- Filtro Cultivo -->
+          <div class="col">
+            <label class="form-label small mb-1">Cultivo</label>
+            <select name="cultivo" class="form-select form-select-sm" 
+                    hx-get="{% url 'projetos_lista_parcial' %}" 
+                    hx-target="#projetos-content" 
+                    hx-indicator="#loading-indicator"
+                    hx-push-url="true">
+              <option value="">-- Todos --</option>
+              {% for cultivo_obj in cultivos %}
+              <option value="{{ cultivo_obj.id }}" {% if cultivo_filter == cultivo_obj.id|stringformat:"s" %}selected{% endif %}>{{ cultivo_obj.nome }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          
+          <!-- Filtro Status -->
+          <div class="col">
+            <label class="form-label small mb-1">Status</label>
+            <select name="status" class="form-select form-select-sm" 
+                    hx-get="{% url 'projetos_lista_parcial' %}" 
+                    hx-target="#projetos-content" 
+                    hx-indicator="#loading-indicator"
+                    hx-push-url="true">
+              <option value="">-- Todos --</option>
+              {% for status_obj in status_list %}
+              <option value="{{ status_obj.id }}" {% if status_filter == status_obj.id|stringformat:"s" %}selected{% endif %}>{{ status_obj.nome }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          
+          <!-- Filtro Origem da Amostra -->
+          <div class="col">
+            <label class="form-label small mb-1">Origem da Amostra</label>
+            <select name="origem_amostra" class="form-select form-select-sm" 
+                    hx-get="{% url 'projetos_lista_parcial' %}" 
+                    hx-target="#projetos-content" 
+                    hx-indicator="#loading-indicator"
+                    hx-push-url="true">
+              <option value="">-- Todas --</option>
+              {% for origem_key, origem_value in origens %}
+              <option value="{{ origem_key }}" {% if origem_filter == origem_key %}selected{% endif %}>{{ origem_value }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
       </div>
-      <div class="card-body">
-        <form id="filter-form" hx-get="{% url 'projetos_lista_parcial' %}" 
-              hx-target="#projetos-content"
-              hx-indicator="#loading-indicator"
-              hx-trigger="change from:select.filter-select delayed:500ms, 
-                          click from:button[type='submit']"
-              hx-push-url="true">
-          {% if search_query %}
-          <input type="hidden" name="q" value="{{ search_query }}">
-          {% endif %}
-          <input type="hidden" name="order_by" value="{{ order_by|default:'' }}">
-          
-          <div class="row">
-            <div class="col-md-4 col-lg-2">
-              <div class="filter-group">
-                <label class="form-label">Empresa</label>
-                <select name="empresa" class="form-select form-select-sm filter-select">
-                  <option value="">-- Todas --</option>
-                  {% for empresa in empresas %}
-                  <option value="{{ empresa.id }}" {% if empresa_filter == empresa.id|stringformat:"s" %}selected{% endif %}>
-                    {{ empresa.nome }}
-                  </option>
-                  {% endfor %}
-                </select>
-              </div>
-            </div>
-            
-            <div class="col-md-4 col-lg-2">
-              <div class="filter-group">
-                <label class="form-label">Cultivo</label>
-                <select name="cultivo" class="form-select form-select-sm filter-select">
-                  <option value="">-- Todos --</option>
-                  {% for cultivo in cultivos %}
-                  <option value="{{ cultivo.id }}" {% if cultivo_filter == cultivo.id|stringformat:"s" %}selected{% endif %}>
-                    {{ cultivo.nome }}
-                  </option>
-                  {% endfor %}
-                </select>
-              </div>
-            </div>
-            
-            <div class="col-md-4 col-lg-2">
-              <div class="filter-group">
-                <label class="form-label">Status</label>
-                <select name="status" class="form-select form-select-sm filter-select">
-                  <option value="">-- Todos --</option>
-                  {% for status in statuses %}
-                  <option value="{{ status.id }}" {% if status_filter == status.id|stringformat:"s" %}selected{% endif %}>
-                    {{ status.nome }}
-                  </option>
-                  {% endfor %}
-                </select>
-              </div>
-            </div>
-            
-            <div class="col-md-4 col-lg-2">
-              <div class="filter-group">
-                <label class="form-label">Etapa</label>
-                <select name="etapa" class="form-select form-select-sm filter-select">
-                  <option value="">-- Todas --</option>
-                  {% for etapa in etapas %}
-                  <option value="{{ etapa.id }}" {% if etapa_filter == etapa.id|stringformat:"s" %}selected{% endif %}>
-                    {{ etapa.nome }}
-                  </option>
-                  {% endfor %}
-                </select>
-              </div>
-            </div>
-            
-            <div class="col-md-4 col-lg-2">
-              <div class="filter-group">
-                <label class="form-label">Origem da Amostra</label>
-                <select name="origem_amostra" class="form-select form-select-sm filter-select">
-                  <option value="">-- Todas --</option>
-                  {% for value, label in origem_opcoes %}
-                  <option value="{{ value }}" {% if origem_filter == value %}selected{% endif %}>
-                    {{ label }}
-                  </option>
-                  {% endfor %}
-                </select>
-              </div>
-            </div>
-            
-            <div class="col-md-4 col-lg-2">
-              <div class="filter-group">
-                <label class="form-label">Status do Projeto</label>
-                <select name="ativo" class="form-select form-select-sm filter-select">
-                  {% for value, label in ativo_opcoes %}
-                  <option value="{{ value|default_if_none:'' }}" {% if ativo_filter == value|default_if_none:'' %}selected{% endif %}>
-                    {{ label }}
-                  </option>
-                  {% endfor %}
-                </select>
-              </div>
-            </div>
-          </div>
-          
-          <div class="row mt-3">
-            <div class="col">
-              <div class="d-flex justify-content-end">
-                <a hx-get="{% url 'projetos_lista_parcial' %}" 
-                   hx-target="#projetos-content"
-                   hx-push-url="true"
-                   class="btn btn-outline-secondary btn-sm me-2">
-                  <i class="bi bi-x-circle"></i> Limpar Filtros
-                </a>
-                <button type="submit" class="btn btn-primary btn-sm">
-                  <i class="bi bi-filter"></i> Aplicar Filtros
-                </button>
-              </div>
-            </div>
-          </div>
-        </form>
+      
+      <!-- Botões na mesma linha -->
+      <div class="col-md-2 d-flex align-items-end">
+        <div class="d-flex">
+          <button class="btn btn-sm btn-outline-secondary me-2" 
+                  hx-get="{% url 'projetos_lista_parcial' %}" 
+                  hx-target="#projetos-content" 
+                  hx-indicator="#loading-indicator"
+                  hx-push-url="true">
+            <i class="bi bi-x-circle"></i> Limpar
+          </button>
+          <button class="btn btn-sm btn-primary" 
+                  hx-get="{% url 'projetos_lista_parcial' %}?{% if empresa_filter %}empresa={{ empresa_filter }}&{% endif %}{% if projeto_filter %}projeto={{ projeto_filter }}&{% endif %}{% if cultivo_filter %}cultivo={{ cultivo_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if origem_filter %}origem_amostra={{ origem_filter }}&{% endif %}{% if search_query %}q={{ search_query }}&{% endif %}" 
+                  hx-target="#projetos-content" 
+                  hx-indicator="#loading-indicator"
+                  hx-push-url="true">
+            <i class="bi bi-funnel-fill"></i> Aplicar
+          </button>
+        </div>
       </div>
     </div>
   </div>
 </div>
+
+
 
 <!-- Indicador de carregamento -->
 <div id="loading-indicator" class="htmx-indicator">
@@ -265,4 +259,40 @@
 <div id="projetos-content">
   {% include "projetos_lista_content.html" %}
 </div>
+
+{% block extra_js %}
+<script>
+  // Inicializar o estado recolhido do filtro quando a página carrega
+  document.addEventListener('DOMContentLoaded', function() {
+    // Filtro começa recolhido por padrão
+    const filterContent = document.getElementById('filter-content');
+    const filterIcon = document.getElementById('filter-toggle-icon');
+    
+    if (filterContent) {
+      filterContent.style.display = 'none';
+      if (filterIcon) {
+        filterIcon.classList.remove('bi-chevron-down');
+        filterIcon.classList.add('bi-chevron-up');
+      }
+    }
+  });
+
+  // Função para alternar a visibilidade dos filtros
+  function toggleFilters() {
+    const filterContent = document.getElementById('filter-content');
+    const filterIcon = document.getElementById('filter-toggle-icon');
+    
+    if (filterContent.style.display === 'none') {
+      filterContent.style.display = 'block';
+      filterIcon.classList.remove('bi-chevron-up');
+      filterIcon.classList.add('bi-chevron-down');
+    } else {
+      filterContent.style.display = 'none';
+      filterIcon.classList.remove('bi-chevron-down');
+      filterIcon.classList.add('bi-chevron-up');
+    }
+  }
+</script>
+{% endblock %}
+
 {% endblock %}

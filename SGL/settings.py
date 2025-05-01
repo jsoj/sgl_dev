@@ -289,5 +289,12 @@ EMAIL_TIMEOUT = 60  # tempo limite em segundos
 EMAIL_SUBJECT_PREFIX = '[Agromarkers] '  # prefixo para assuntos de emails
 EMAIL_DEBUG = True  # ativar logs detalhados de email
 
-CONTROL_WELL_POSITIONS = ['A01', 'B01', 'C01', 'D01','E01','F01']
+# Configurações de poços de controle - mantido para compatibilidade com código legado
+CONTROL_WELL_CONFIGS = {
+    'CONFIG_1': ['A01', 'B01', 'C01', 'D01', 'E01', 'F01'],
+    'CONFIG_2': ['A01', 'B01', 'C01', 'D01']
+}
 
+DEFAULT_CONTROL_WELLS = 'CONFIG_1'
+
+CONTROL_WELL_POSITIONS = ['A01', 'B01', 'C01', 'D01', 'E01', 'F01']

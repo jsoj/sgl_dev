@@ -4,7 +4,11 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.db import transaction
 from django.core.exceptions import ValidationError
-from app.models import Empresa, Projeto, Placa96, Placa384
+from app.models import Empresa, Projeto, Placa96, Placa384, ResultadoUpload384
+import logging
+from app.servico import processar_arquivo_384
+
+logger = logging.getLogger(__name__)
 
 @login_required
 def criar_placa_384(request):
@@ -58,3 +62,28 @@ def criar_placa_384(request):
         empresas = Empresa.objects.filter(id=request.user.empresa.id)
 
     return render(request, 'criar_placa_384.html', {'empresas': empresas})
+
+@login_required
+def processar_arquivo_384_view(request, object_id):
+    try:
+        # Log para debugging
+        logger.info(f"View processar_arquivo_384 chamada para ID: {object_id}")
+        
+        # Chamar a função de processamento
+        stats = processar_arquivo_384(object_id)
+        
+        # Mensagem de sucesso
+        mensagem = (
+            f"Arquivo processado com sucesso. "
+            f"Total de registros: {stats['total_registros']}, "
+            f"Registros criados: {stats['registros_criados']}, "
+            f"Registros duplicados: {stats['registros_duplicados']}"
+        )
+        messages.success(request, mensagem)
+        
+    except Exception as e:
+        logger.exception(f"Erro ao processar arquivo ID {object_id}: {str(e)}")
+        messages.error(request, f"Erro ao processar arquivo: {str(e)}")
+    
+    # Redirecionar para a lista
+    return redirect("admin:app_resultadoupload384_changelist")

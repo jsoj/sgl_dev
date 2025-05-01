@@ -11,7 +11,6 @@ from django.core.mail import EmailMessage
 import os  
 from django.core.validators import FileExtensionValidator
 from django.utils import timezone
-
 import logging
 
 logger = logging.getLogger(__name__)
@@ -78,7 +77,10 @@ ORIGEM_CHOICES = [
 TIPO_CHOICES = [
     ("PLANTA 02 DISCOS]", "PLANTA 02 DISCOS"),
     ("PLANTA 04 DISCOS]", "PLANTA 04 DISCOS"),
-    ("BULK 08 DISCOS", "BULK 08 DISCOS",)]
+    ("PLANTA 08 DISCOS]", "PLANTA 08 DISCOS"),
+    ("BULK 08 DISCOS", "BULK 08 DISCOS",),
+    ("CHIPPING SEMENTE]", "CHIPPING SEMENTE"),
+    ]
 
 IF_MARCADOR_CHOICES = [
     ("---", "---"),
@@ -223,7 +225,7 @@ class Projeto(EmpresaMixin, models.Model):
     data_liberacao_resultados = models.DateField(                       blank=True, null=True,  validators=[validar_data_liberacao])
     data_validacao_cliente = models.DateField(                          blank=True, null=True)
     data_prevista_destruicao = models.DateField(                        blank=True, null=True)
-    data_destruicao = models.DateField(                                 blank=True, null=True)
+    data_destruicao = models.DateField(blank=True, null=True)
     created_at = models.DateField(   auto_now_add=True)
     data_alteracao = models.DateField(  auto_now=True)
     tem_template = models.BooleanField(          
@@ -236,8 +238,6 @@ class Projeto(EmpresaMixin, models.Model):
         editable=False,
         default=False)
         
-    
-    data_destruicao = models.DateField( auto_now=True)
     comentarios = models.TextField(                                    blank=True, null=True,                                               help_text='Registre toda e qualquer informação acessória para este projeto')
     
     # Campos de controle de PDF e email
@@ -286,7 +286,7 @@ class Projeto(EmpresaMixin, models.Model):
     def _calcular_numero_placas(self):
         """Calcula automaticamente o número de placas de 96 necessárias"""
         if self.quantidade_amostras:
-            self.numero_placas_96 = -(-self.quantidade_amostras // 96)  # Arredondamento para cima
+            self.numero_placas_96 = -(-self.quantidade_amostras // 90)  # Arredondamento para cima
 
     @property
     def status_atual(self):
@@ -1436,9 +1436,9 @@ class PlacaMap384to384(EmpresaMixin, models.Model):
         if PlacaMap384to384.objects.filter(placa_origem=self.placa_origem).exists():
             raise ValidationError('Esta placa origem já foi utilizada em outra transferência.')
 
-# RESULTADO
+# RESULTADO 1536
 
-class ResultadoUpload(EmpresaMixin,models.Model):
+class ResultadoUpload1536(EmpresaMixin,models.Model):
     """
     Modelo para gerenciar o upload de arquivos de resultado
     """
@@ -1483,12 +1483,12 @@ class ResultadoUpload(EmpresaMixin,models.Model):
         if self.placa_1536.projeto != self.projeto:
             raise ValidationError("A placa 1536 selecionada não pertence ao projeto informado")
 
-class ResultadoAmostra(EmpresaMixin,models.Model):
+class ResultadoAmostra1536(EmpresaMixin,models.Model):
     """
     Modelo para armazenar os resultados por amostra
     """
     empresa = models.ForeignKey('Empresa', on_delete=models.CASCADE)
-    upload = models.ForeignKey(ResultadoUpload, on_delete=models.CASCADE)
+    upload = models.ForeignKey(ResultadoUpload1536, on_delete=models.CASCADE)
     amostra = models.ForeignKey('Amostra', on_delete=models.CASCADE)
     data_processamento = models.DateTimeField(auto_now_add=True)
     
@@ -1532,3 +1532,85 @@ class ResultadoAmostra(EmpresaMixin,models.Model):
         # Validar coordenadas AJ
         if self.resultado_aj and (self.coordenada_x_aj is None or self.coordenada_y_aj is None):
             raise ValidationError("Coordenadas X e Y são obrigatórias para resultado AJ")
+
+# RESULTADO 384
+
+class ResultadoUpload384(models.Model):
+    """
+    Modelo para gerenciar uploads de arquivos de genotipagem.
+    """
+    projeto = models.ForeignKey('Projeto', on_delete=models.CASCADE, verbose_name="Projeto")
+    empresa = models.ForeignKey('Empresa', on_delete=models.CASCADE, verbose_name="Empresa")
+    empresa_codigo = models.CharField(max_length=5, verbose_name="Código da Empresa", blank=True, null=True, editable=False)
+    empresa_nome = models.CharField(max_length=100, verbose_name="Nome da Empresa", blank=True, null=True, editable=False)
+    arquivo = models.FileField(
+        upload_to='arquivos_384/',
+        validators=[FileExtensionValidator(allowed_extensions=['csv', 'xlsx', 'xls'])],
+        verbose_name="Arquivo de Genotipagem Placas 384"
+    )
+    data_upload = models.DateTimeField(auto_now_add=True, verbose_name="Data de Upload",editable=False)
+    processado = models.BooleanField(default=False, verbose_name="Processado", editable=False)
+    data_processamento = models.DateTimeField(blank=True, null=True, verbose_name="Data de Processamento",editable=False)
+    
+    class Meta:
+        verbose_name = 'Upload de Arquivo'
+        verbose_name_plural = 'Uploads de Arquivos'
+        ordering = ['-data_upload']
+
+    def __str__(self):
+        return f"Upload {self.id} - Projeto {self.projeto.codigo_projeto} - {self.data_upload.strftime('%d/%m/%Y')}"
+    
+    def save(self, *args, **kwargs):
+        # Preencher os campos de empresa automaticamente
+        if self.empresa and not self.empresa_codigo:
+            self.empresa_codigo = self.empresa.codigo
+        if self.empresa and not self.empresa_nome:
+            self.empresa_nome = self.empresa.nome
+        super().save(*args, **kwargs)
+
+class ResultadoAmostra384(models.Model):
+    """
+    Modelo para armazenar os resultados de genotipagem processados.
+    """
+    arquivo_upload = models.ForeignKey(
+        ResultadoUpload384, 
+        on_delete=models.CASCADE, 
+        related_name='resultados',
+        verbose_name="Arquivo de Origem"
+    )
+    empresa = models.CharField(max_length=3, verbose_name="Empresa", help_text="Formato: 001",blank=True, null=True,)
+    projeto = models.CharField(max_length=20, verbose_name="Projeto",blank=True, null=True,)
+    placa_384 = models.CharField(max_length=20, verbose_name="Placa", help_text="Formato: 001-004",blank=True, null=True,)
+    poco_placa_384 = models.CharField(max_length=4, verbose_name="Poço", help_text="Formato: A01",blank=True, null=True,)
+    teste = models.CharField(max_length=20, verbose_name="Teste", help_text="Ex: BT2",blank=True, null=True,)
+    resultado = models.CharField(max_length=10, verbose_name="Resultado", help_text="Ex: POS:POS",blank=True, null=True,)
+    x = models.FloatField(verbose_name="X",blank=True, null=True,)
+    y = models.FloatField(verbose_name="Y",blank=True, null=True,)
+    chave = models.CharField(
+        max_length=100,  # Ajuste o tamanho conforme necessário
+        unique=True,
+        blank=False, # Não deve ser vazio após a criação
+        null=False,  # Não deve ser nulo após a criação
+        db_index=True, # Indexar para consultas rápidas
+        help_text="Chave única gerada: empresa-projeto-placa-poco-teste"
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['chave'], name='unique_resultado_384_chave')
+        ]
+        verbose_name = 'Resultado de Placas 384 Pherastar'
+        verbose_name_plural = 'Resultados de Placas 384 Pherastar'
+        indexes = [
+            models.Index(fields=['chave']),
+            models.Index(fields=['placa_384', 'poco_placa_384']),
+            models.Index(fields=['teste']),
+            models.Index(fields=['resultado']),
+        ]
+
+    def __str__(self):
+        return f"{self.chave}"
+
+
+
+        
