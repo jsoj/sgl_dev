@@ -3,7 +3,8 @@
 
 ### Objetivo
 
-Gerencias os aspectos operacionais de um laboratório de bioteconologia, através de metodologia de gerenciamento de projetos, principalmente para controle e rastreabilidade de amostras durante as diversas fases do projeto. 
+Gerencias os aspectos operacionais de um laboratório de bioteconologia, através de metodologia de gerenciamento de projetos, principalmente para controle e rastreabilidade de amostras durante as diversas fases do projeto.
+
 
 ### Funcionalidades. 
 
@@ -22,18 +23,17 @@ Gerencias os aspectos operacionais de um laboratório de bioteconologia, atravé
 
 ### Release: V.1.0.7 (Em desenvolvimento)
 
-* Carga automática de resultados
-  - Implementação de importação automática do Pherastar 1536
-  - Implementação de importação automática do Pherastar 384
-  - Implementação de importação automática do QuantumStudio 384
-* Frontend:
-  - Consulta Projetos.
-  - Tela de criação automática de placas 1536.
-  - Tela para subir resultados brutos.
-  - Tela para tratar resulados brutos. 
-  - Lista de resultados com importação e exportação. 
-  - 
-
+*   **Planejamento:** Veja as [Issues abertas](https://github.com/jsoj/sgl_dev/issues?q=is%3Aopen+is%3Aissue) para detalhes sobre o que está sendo trabalhado.
+*   Carga automática de resultados
+    *   Implementação de importação automática do Pherastar 1536
+    *   Implementação de importação automática do Pherastar 384
+    *   Implementação de importação automática do QuantumStudio 384
+*   Frontend:
+    *   Consulta Projetos.
+    *   Tela de criação automática de placas 1536.
+    *   Tela para subir resultados brutos.
+    *   Tela para tratar resulados brutos.
+    *   Lista de resultados com importação e exportação.
 
 ### Release: V.1.0.6 - 01/05/2025 
 * Backend:
