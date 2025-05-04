@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 def generate_project_pdf(projeto):
     """
-    Gera um PDF com as informações completas do projeto
+    Gera um PDF com as informações completas do projeto e retorna o PDF e o nome do arquivo.
     """
     # Pré-carregar os marcadores para evitar queries adicionais
     try:
@@ -41,8 +41,8 @@ def generate_project_pdf(projeto):
     # Configuração do buffer e documento
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, 
-                           rightMargin=36, leftMargin=36,
-                           topMargin=36, bottomMargin=18)
+                           rightMargin=24, leftMargin=48,
+                           topMargin=24, bottomMargin=12)
     styles = getSampleStyleSheet()
     elements = []
     
@@ -53,8 +53,8 @@ def generate_project_pdf(projeto):
     
     if os.path.exists(logo_path):
         logo = Image(logo_path)
-        logo.drawHeight = 2 * inch
-        logo.drawWidth = 2 * inch
+        logo.drawHeight = 1 * inch
+        logo.drawWidth = 1 * inch
         elements.append(logo)
     
     # Estilo para o título
@@ -63,17 +63,17 @@ def generate_project_pdf(projeto):
     
     # Título
     elements.append(Paragraph(f"Detalhes do Projeto: {projeto.codigo_projeto}", title_style))
-    elements.append(Spacer(1, 0.25*inch))
+    elements.append(Spacer(1, 0.15*inch))
     
     # Função para criar tabelas de informação com tabulação
     def create_info_table(data_list):
-        table = Table(data_list, colWidths=[2*inch, 3.5*inch])
+        table = Table(data_list, colWidths=[1.5*inch, 4.5*inch])  # Ajustar largura das colunas
         table.setStyle(TableStyle([
             ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
             ('ALIGN', (1, 0), (1, -1), 'LEFT'),
             ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),  # Reduzir padding
+            ('TOPPADDING', (0, 0), (-1, -1), 4),     # Reduzir padding
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ]))
         return table
@@ -97,7 +97,7 @@ def generate_project_pdf(projeto):
         empresa_data.append(["Telefone:", projeto.empresa.telefone])
     
     elements.append(create_info_table(empresa_data))
-    elements.append(Spacer(1, 0.15*inch))
+    elements.append(Spacer(1, 0.1*inch))
     
     # Dados do projeto
     elements.append(Paragraph("<b>Dados do Projeto</b>", styles['Heading3']))
@@ -126,7 +126,7 @@ def generate_project_pdf(projeto):
         projeto_data.append(["Quantidade de Material:", str(projeto.quantidade_material)])
     
     elements.append(create_info_table(projeto_data))
-    elements.append(Spacer(1, 0.2*inch))
+    elements.append(Spacer(1, 0.1*inch))
     
     # Seção de cultivo e tecnologia
     elements.append(Paragraph("Cultivo e Tecnologias", section_style))
@@ -144,7 +144,7 @@ def generate_project_pdf(projeto):
         cultivo_data.append(["Resultado Anterior:", projeto.get_se_marcador_analisado_display() if projeto.se_marcador_analisado else 'Não informado'])
     
     elements.append(create_info_table(cultivo_data))
-    elements.append(Spacer(1, 0.15*inch))
+    elements.append(Spacer(1, 0.1*inch))
     
     # Tecnologias
     elements.append(Paragraph("<b>Tecnologias</b>", styles['Heading3']))
@@ -173,7 +173,7 @@ def generate_project_pdf(projeto):
     else:
         elements.append(Paragraph("Nenhuma tecnologia associada ao projeto", styles['Normal']))
     
-    elements.append(Spacer(1, 0.2*inch))
+    elements.append(Spacer(1, 0.1*inch))
     
     # Seção de marcadores
     elements.append(Paragraph("Marcadores", section_style))
@@ -207,7 +207,7 @@ def generate_project_pdf(projeto):
         logger.error(f"Erro ao processar marcadores trait: {e}")
         elements.append(Paragraph(f"Erro ao processar marcadores trait: {str(e)}", styles['Normal']))
     
-    elements.append(Spacer(1, 0.15*inch))
+    elements.append(Spacer(1, 0.1*inch))
     
     # Marcadores Customizados
     elements.append(Paragraph("<b>Marcadores Customizados:</b>", styles['Heading3']))
@@ -237,7 +237,7 @@ def generate_project_pdf(projeto):
         logger.error(f"Erro ao processar marcadores customizados: {e}")
         elements.append(Paragraph(f"Erro ao processar marcadores customizados: {str(e)}", styles['Normal']))
     
-    elements.append(Spacer(1, 0.2*inch))
+    elements.append(Spacer(1, 0.1*inch))
     
     # Status e Etapa
     elements.append(Paragraph("Status do Projeto", section_style))
@@ -253,7 +253,7 @@ def generate_project_pdf(projeto):
     else:
         elements.append(Paragraph("Nenhuma informação de status disponível", styles['Normal']))
     
-    elements.append(Spacer(1, 0.2*inch))
+    elements.append(Spacer(1, 0.1*inch))
     
     # Cronograma
     elements.append(Paragraph("Cronograma", section_style))
@@ -291,7 +291,7 @@ def generate_project_pdf(projeto):
         ('GRID', (0, 0), (-1, -1), 1, colors.black)
     ]))
     elements.append(table)
-    elements.append(Spacer(1, 0.25*inch))
+    elements.append(Spacer(1, 0.15*inch))
     
     # Comentários
     if projeto.comentarios:
@@ -314,13 +314,27 @@ def generate_project_pdf(projeto):
                                 fontSize=8,
                                 textColor=colors.grey,
                                 alignment=1)  # Centralizado
-    elements.append(Spacer(1, 0.5*inch))
+    elements.append(Spacer(1, 0.3*inch))
     elements.append(Paragraph(f"Documento gerado automaticamente em {projeto.data_alteracao.strftime('%d/%m/%Y')}", footer_style))
     elements.append(Paragraph("© Agromarkers - Todos os direitos reservados", footer_style))
     
+    # Gerar o nome do arquivo
+    ano_plantio = projeto.ano_plantio_ensaio or "Ano não informado"
+    codigo_empresa = projeto.empresa.codigo or "Sem código"
+    nome_empresa = projeto.empresa.nome or "Sem nome"
+    codigo_projeto = projeto.codigo_projeto or "Sem código"
+    numero_amostras = projeto.quantidade_amostras or "Sem amostras"
+    
+    # Formatar o nome do arquivo
+    nome_arquivo = f"Ano {ano_plantio} Empresa {codigo_empresa} Projeto {codigo_projeto} Amostras {numero_amostras}.pdf"
+    
+    # Substituir caracteres inválidos no nome do arquivo
+    nome_arquivo = nome_arquivo.replace("/", "-").replace("\\", "-")
+
     # Construir documento
     doc.build(elements)
     pdf = buffer.getvalue()
     buffer.close()
     
-    return pdf
+    # Retornar o PDF e o nome do arquivo
+    return pdf, nome_arquivo

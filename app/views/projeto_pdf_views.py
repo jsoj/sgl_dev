@@ -8,16 +8,15 @@ def projeto_pdf_view(request, projeto_id):
     try:
         projeto = Projeto.objects.get(id=projeto_id)
         
-        # Gera o PDF
-        pdf = generate_project_pdf(projeto)
+        # Gera o PDF e obtém o nome do arquivo
+        pdf, nome_arquivo = generate_project_pdf(projeto)
         
         # Configura a resposta HTTP 
         response = HttpResponse(pdf, content_type='application/pdf')
         
         # Se não for uma solicitação AJAX, configura para download
         if not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            filename = f"projeto_{projeto.codigo_projeto}.pdf"
-            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            response['Content-Disposition'] = f'attachment; filename="{nome_arquivo}"'
         
         return response
     except Projeto.DoesNotExist:
@@ -28,13 +27,12 @@ def projeto_pdf_download(request, projeto_id):
     try:
         projeto = Projeto.objects.get(id=projeto_id)
         
-        # Gera o PDF
-        pdf = generate_project_pdf(projeto)
+        # Gera o PDF e obtém o nome do arquivo
+        pdf, nome_arquivo = generate_project_pdf(projeto)
         
         # Configura a resposta HTTP para forçar o download
         response = HttpResponse(pdf, content_type='application/pdf')
-        filename = f"projeto_{projeto.codigo_projeto}.pdf"
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response['Content-Disposition'] = f'attachment; filename="{nome_arquivo}"'
         
         # Adiciona cabeçalhos para evitar cache
         response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
