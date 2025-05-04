@@ -12,6 +12,7 @@ import os
 from django.core.validators import FileExtensionValidator
 from django.utils import timezone
 import logging
+from app.project_pdf import generate_project_pdf  # Certifique-se de importar a função
 
 logger = logging.getLogger(__name__)
 
@@ -726,11 +727,11 @@ class Projeto(EmpresaMixin, models.Model):
 
     def enviar_pdf_projeto(self):
         """
-        Gera e envia um PDF com as informações do projeto para os emails configurados
+        Gera e envia um PDF com as informações do projeto para os emails configurados.
         """
         try:
-            from .project_pdf import generate_project_pdf
-            pdf_content = generate_project_pdf(self)
+            # Gera o PDF e obtém o nome do arquivo
+            pdf_content, nome_arquivo = generate_project_pdf(self)
             
             # Marcar como gerado
             self.projeto_pdf_gerado = True
@@ -767,13 +768,11 @@ class Projeto(EmpresaMixin, models.Model):
             )
             
             # Anexar PDF
-            filename = f"projeto_{self.empresa.codigo}_{self.codigo_projeto}.pdf"
-            email.attach(filename, pdf_content, 'application/pdf')
+            email.attach(nome_arquivo, pdf_content, 'application/pdf')
             
             # Enviar email
             email.send()
             logger.info(f"Email com PDF do projeto enviado com sucesso para {destinatarios} - Projeto {self.codigo_projeto}")
-            print(f"Email com PDF do projeto enviado com sucesso para {destinatarios}")
             
             # Atualizar status de envio
             self.projeto_email_enviado = True
@@ -784,16 +783,7 @@ class Projeto(EmpresaMixin, models.Model):
         except Exception as e:
             erro_msg = f"Erro ao gerar/enviar PDF do projeto: {str(e)}"
             logger.error(erro_msg)
-            print(erro_msg)
-            
-            import traceback
-            traceback.print_exc()
-            
-            # Registrar o erro
-            self.falha_envio_mensagem = f"{self.falha_envio_mensagem or ''}\n{erro_msg}"
-            self.save(update_fields=['falha_envio_mensagem'])
-            
-            return False
+            raise
 
     def save(self, *args, **kwargs):
         try:
@@ -1597,4 +1587,3 @@ class ResultadoAmostra384(models.Model):
 
 
 
-        
