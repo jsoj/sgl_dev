@@ -177,6 +177,7 @@
                                 <option value="PLANTA 02 DISCOS" {% if request.POST.tipo_amostra == "PLANTA 02 DISCOS" %}selected{% endif %}>PLANTA 02 DISCOS</option>
                                 <option value="PLANTA 04 DISCOS" {% if request.POST.tipo_amostra == "PLANTA 04 DISCOS" %}selected{% endif %}>PLANTA 04 DISCOS</option>
                                 <option value="BULK 08 DISCOS" {% if request.POST.tipo_amostra == "BULK 08 DISCOS" %}selected{% endif %}>BULK 08 DISCOS</option>
+                                <option value="CHIPPING SEMENTE" {% if request.POST.tipo_amostra == "CHIPPING SEMENTE" %}selected{% endif %}>CHIPPING SEMENTE</option>
                             </select>
                             {% if field_errors.tipo_amostra %}
                                 <div class="invalid-feedback">{{ field_errors.tipo_amostra.0 }}</div>

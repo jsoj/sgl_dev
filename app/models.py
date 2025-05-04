@@ -209,7 +209,7 @@ class Projeto(EmpresaMixin, models.Model):
     etapa = models.ForeignKey(Etapa,                                    blank=True,     null=True,  default=1,  on_delete=models.CASCADE,   help_text='Escolha a estapa da amostra do projeto')
     nome_projeto_cliente = models.CharField(            max_length=100, blank=True,     null=True,                                          help_text='Nome de guerra do projeto. Exemplo: RV_CZF4_MULTIPGN_1x3_02_01')
     prioridade = models.PositiveSmallIntegerField(default=0,                                                                                help_text='Prioridade do projeto. Exemplo: 01 prioridade máxima, 09 baixa prioridade')
-    codigo_ensaio = models.CharField(                   max_length=10,  blank=True,                                                         help_text='Código de ensaio do cliente. Exemplo: 51899137 ')
+    codigo_ensaio = models.CharField(                   max_length=50,  blank=True,                                                         help_text='Código de ensaio do cliente. Exemplo: 51899137 ')
     setor_cliente = models.CharField(                   max_length=40,  blank=True,                                                         help_text='Setor interno do cliente. Exemplo: Nursery, Pureza, Produção, QAQC' )
     local_cliente = models.CharField(                   max_length=40,  blank=True,                                                         help_text='Local de referência do cliente. Exemplo: Porto Nacional, Rio Verde')
     ano_plantio_ensaio = models.IntegerField(                           blank=True,     null=True,                                          help_text='Ano do plantio com 4 dígitos. Exemplo: 2024')
