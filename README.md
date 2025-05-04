@@ -5,7 +5,6 @@
 
 Gerencias os aspectos operacionais de um laboratório de bioteconologia, através de metodologia de gerenciamento de projetos, principalmente para controle e rastreabilidade de amostras durante as diversas fases do projeto.
 
-**Nota:** O desenvolvimento e rastreamento de novas funcionalidades e correções são gerenciados através das [Issues do GitHub](https://github.com/jsoj/sgl_dev/issues). <!-- Substitua pela URL real das Issues do seu projeto -->
 
 ### Funcionalidades. 
 
