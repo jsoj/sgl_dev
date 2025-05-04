@@ -1,4 +1,4 @@
-# SGL - Sistema de Gestão de Laboratório - V.1.0.6
+# SGL - Sistema de Gestão de Laboratório - V.1.0.6 - 03-05-2025
 ## AGROMARKERS
 
 ### Objetivo

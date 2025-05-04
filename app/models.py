@@ -30,7 +30,6 @@ class Empresa(models.Model):
     email = models.EmailField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
     data_cadastro = models.DateTimeField(auto_now_add=True)
-    ativo = models.BooleanField(default=True)
 
     class Meta:
         verbose_name = 'Empresa'
@@ -93,7 +92,6 @@ class Tecnologia(models.Model):
     caracteristica = models.TextField(max_length=100, blank=True)
     vencimento_patente = models.DateField(blank=True, null=True)
     data_cadastro = models.DateField(auto_now_add=True)
-    ativo = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
@@ -109,7 +107,6 @@ class Cultivo(models.Model):
     nome = models.CharField(max_length=100)
     nome_cientifico = models.CharField(max_length=40, blank=True, null=True)
     data_cadastro = models.DateField(auto_now_add=True)
-    ativo = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
 
     def __str__(self) -> str:
@@ -123,7 +120,6 @@ class Cultivo(models.Model):
 
 class Status(models.Model):
     nome = models.CharField(max_length=100)
-    ativo = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
 
     def __str__(self) -> str:
@@ -137,7 +133,6 @@ class Status(models.Model):
 
 class Etapa(models.Model):
     nome = models.CharField(max_length=100)
-    ativo = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
 
     def __str__(self) -> str:
@@ -154,7 +149,6 @@ class MarcadorTrait(models.Model):
     nome = models.CharField(max_length=100)
     caracteristica = models.TextField(blank=True, null=True)
     data_cadastro = models.DateField(auto_now_add=True)
-    ativo = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
 
     def __str__(self) -> str:
@@ -171,7 +165,6 @@ class MarcadorCustomizado(models.Model):
     nome = models.CharField(max_length=100)
     caracteristica = models.TextField(blank=True, null=True)
     data_cadastro = models.DateField(auto_now_add=True)
-    ativo = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
 
     def __str__(self) -> str:
@@ -228,9 +221,6 @@ class Projeto(EmpresaMixin, models.Model):
     data_destruicao = models.DateField(blank=True, null=True)
     created_at = models.DateField(   auto_now_add=True)
     data_alteracao = models.DateField(  auto_now=True)
-    tem_template = models.BooleanField(          
-        editable=False,
-        default=False)
     ativo = models.BooleanField(  
         editable=False,
         default=True)
@@ -240,12 +230,6 @@ class Projeto(EmpresaMixin, models.Model):
         
     comentarios = models.TextField(                                    blank=True, null=True,                                               help_text='Registre toda e qualquer informação acessória para este projeto')
     
-    # Campos de controle de PDF e email
-    template_pdf_gerado = models.BooleanField(default=False, help_text="Indica se o PDF do template foi gerado com sucesso")
-    template_email_enviado = models.BooleanField(default=False, help_text="Indica se o email com o template foi enviado com sucesso")
-    projeto_pdf_gerado = models.BooleanField(default=False, help_text="Indica se o PDF do projeto foi gerado com sucesso")
-    projeto_email_enviado = models.BooleanField(default=False, help_text="Indica se o email com informações do projeto foi enviado com sucesso")
-    falha_envio_mensagem = models.TextField(blank=True, null=True, help_text="Mensagens de erro durante a geração/envio de PDFs")
     
     class Meta:
         unique_together = ['empresa', 'codigo_projeto']
