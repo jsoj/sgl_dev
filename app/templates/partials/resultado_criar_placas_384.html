@@ -36,12 +36,6 @@
             {% endif %}
         </div>
         
-        <div class="mt-3">
-            <button class="btn btn-primary" 
-                    hx-get="{% url 'carregar_placas_por_projeto' %}?projeto={{ projeto.id }}"
-                    hx-target="#placas-container">
-                Criar mais placas 384
-            </button>
-        </div>
+        <!-- Botão removido para evitar que seja copiado para o modal -->
     </div>
 </div>

@@ -53,6 +53,24 @@
         <!-- Os resultados da criação de placas 384 serão exibidos aqui -->
     </div>
 
+    <!-- Modal for Success Results -->
+    <div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="successModalLabel">Resultados da Criação de Placas 384</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="modal-results-container">
+                    <!-- Os resultados serão carregados aqui -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" id="close-modal-btn" data-bs-dismiss="modal">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Indicador de carregamento -->
     <div id="loading-indicator" class="htmx-indicator">
         <div class="spinner-border text-primary" role="status">
@@ -124,6 +142,51 @@ document.addEventListener('DOMContentLoaded', function() {
     document.body.addEventListener('htmx:configRequest', function(evt) {
         const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
         evt.detail.headers['X-CSRFToken'] = csrfToken;
+    });
+
+    // Mostrar spinner quando o botão de criar placas for clicado
+    document.addEventListener('click', function(e) {
+        if (e.target.id === 'btn-criar-placas') {
+            const loadingIndicator = document.getElementById('loading-indicator');
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'flex'; // Use 'flex' to ensure visibility
+            }
+        }
+    });
+
+    // Esconder o spinner quando a requisição HTMX terminar
+    document.body.addEventListener('htmx:afterRequest', function() {
+        const loadingIndicator = document.getElementById('loading-indicator');
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'none';
+        }
+    });
+
+    // Esconder o spinner quando a requisição HTMX terminar
+    document.body.addEventListener('htmx:afterOnLoad', function() {
+        const loadingIndicator = document.getElementById('loading-indicator');
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'none';
+        }
+    });
+
+    // Mostrar modal com os resultados no sucesso
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+        if (evt.detail.target.id === 'resultado-container') {
+            const modalResults = document.getElementById('modal-results-container');
+            const resultadoContainer = document.getElementById('resultado-container');
+            if (modalResults && resultadoContainer) {
+                modalResults.innerHTML = resultadoContainer.innerHTML; // Copiar conteúdo para o modal
+                resultadoContainer.innerHTML = ''; // Limpar o conteúdo da página principal
+                const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+                successModal.show();
+            }
+        }
+    });
+
+    // Redirecionar para a página principal ao fechar o modal
+    document.getElementById('successModal').addEventListener('hidden.bs.modal', function() {
+        window.location.href = '/'; // Substitua '/' pela URL da página principal
     });
 
     // Inicializar contador
