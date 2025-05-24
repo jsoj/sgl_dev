@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework.authtoken', # Add this line
     'import_export',
 
 ]
@@ -165,7 +166,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
     ),
 }
 
@@ -298,3 +299,4 @@ CONTROL_WELL_CONFIGS = {
 DEFAULT_CONTROL_WELLS = 'CONFIG_1'
 
 CONTROL_WELL_POSITIONS = ['A01', 'B01', 'C01', 'D01', 'E01', 'F01']
+# CONTROL_WELL_POSITIONS = ['A01', 'B01', 'C01', 'D01']

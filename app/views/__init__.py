@@ -1,5 +1,5 @@
 # Importar os ViewSets do arquivo api_views.py
-from .api_views import UserViewSet, GroupViewSet, get_projetos, get_placas_96, get_placas_1536
+from .api_views import UserViewSet, GroupViewSet, get_projetos, get_placas_96, get_placas_1536, api_login_view, api_logout_view, DashboardAPIView
 
 # Importar as views HTMX
 from .placa384_htmx import (

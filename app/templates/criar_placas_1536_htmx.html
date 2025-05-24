@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+
+{% block title %}Criar Placas 1536{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">Criar Placas 1536</h1>
+
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Selecione a empresa e o projeto</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="empresa" class="form-label">Empresa</label>
+                    <select
+                        class="form-select"
+                        id="empresa"
+                        name="empresa"
+                        hx-get="{% url 'carregar_projetos_por_empresa' %}"
+                        hx-target="#projetos-container"
+                        hx-indicator="#loading-indicator"
+                        hx-trigger="change"
+                    >
+                        <option value="">Selecione uma empresa</option>
+                        {% for empresa in empresas %}
+                            <option value="{{ empresa.id }}">{{ empresa.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div id="projetos-container">
+                        <!-- Os projetos serão carregados aqui via HTMX -->
+                        {% include 'partials/projetos_por_empresa.html' with projetos=None %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="placas-container">
+        <p class="mt-4 text-muted">Selecione um projeto para carregar as placas 384.</p>
+    </div>
+
+    <div id="resultado-container">
+        <!-- Os resultados da criação de placas 1536 serão exibidos aqui -->
+    </div>
+
+    <!-- Indicador de carregamento -->
+    <div id="loading-indicator" class="htmx-indicator">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Carregando...</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+    .htmx-indicator {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 1000;
+        background-color: rgba(255, 255, 255, 0.8);
+        padding: 20px;
+        border-radius: 5px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    .htmx-request .htmx-indicator {
+        display: block;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Configurar CSRF token para todas as requisições HTMX
+    document.body.addEventListener('htmx:configRequest', function(evt) {
+        const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+        evt.detail.headers['X-CSRFToken'] = csrfToken;
+    });
+
+    // Atualizar placas ao selecionar um projeto
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+        if (evt.detail.target.id === 'projetos-container') {
+            const projetoSelect = document.querySelector('#projeto');
+            if (projetoSelect) {
+                projetoSelect.addEventListener('change', function() {
+                    const projetoId = this.value;
+                    if (projetoId) {
+                        fetch(`/api/carregar-placas-por-projeto/?projeto=${projetoId}`)
+                            .then(response => response.json())
+                            .then(data => {
+                                const placasContainer = document.querySelector('#placas-container');
+                                if (data.placas && data.placas.length > 0) {
+                                    placasContainer.innerHTML = `
+                                        <div class="card mt-4">
+                                            <div class="card-header bg-primary text-white">
+                                                <h5 class="mb-0">Placas 384 Disponíveis</h5>
+                                            </div>
+                                            <div class="card-body">
+                                                <ul class="list-group">
+                                                    ${data.placas.map(placa => `
+                                                        <li class="list-group-item">
+                                                            <input type="checkbox" class="form-check-input me-2" value="${placa.id}">
+                                                            ${placa.codigo}
+                                                        </li>
+                                                    `).join('')}
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    `;
+                                } else {
+                                    placasContainer.innerHTML = '<p class="mt-4 text-muted">Nenhuma placa 384 disponível para este projeto.</p>';
+                                }
+                            })
+                            .catch(error => console.error('Erro ao carregar placas:', error));
+                    }
+                });
+            }
+        }
+    });
+
+    // Esconder o spinner quando a requisição HTMX terminar
+    document.body.addEventListener('htmx:afterRequest', function() {
+        const loadingIndicator = document.getElementById('loading-indicator');
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'none';
+        }
+    });
+});
+</script>
+{% endblock %}

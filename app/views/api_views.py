@@ -1,11 +1,25 @@
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, authenticate
 from django.contrib.auth.models import Group
-from rest_framework import viewsets
-from rest_framework import permissions
-from app.serializers import UserSerializer, GroupSerializer
+from rest_framework import viewsets, permissions, status
+from rest_framework.response import Response
+from rest_framework.decorators import api_view, permission_classes as drf_permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.authtoken.models import Token
+from app.serializers import UserSerializer, GroupSerializer, UserLoginSerializer
 from app.models import Projeto, Placa96, Empresa, Placa1536
+from django.db.models import Sum, Count, Avg, F # Ensure F is imported
+from rest_framework.views import APIView # Ensure APIView is imported
+from app.serializers import ( # Import new dashboard serializers
+    DashboardAPISerializer,
+    DashboardGeralSerializer,
+    DashboardPlacaStatsSerializer,
+    DashboardDatapointsPorMarcadorSerializer,
+    DashboardEmpresaStatsSerializer
+)
+from app.models import MarcadorTrait, MarcadorCustomizado, Placa384 # Import necessary models
+
 
 User = get_user_model()
 
@@ -140,3 +154,155 @@ def verificar_projeto(request):
             'exists': False,
             'error': str(e)
         })
+
+@api_view(['POST'])
+@drf_permission_classes([AllowAny])
+def api_login_view(request):
+    """
+    API endpoint for user login and token generation.
+    Accepts username and password.
+    Returns auth token on success.
+    """
+    username = request.data.get('username')
+    password = request.data.get('password')
+
+    if not username or not password:
+        return Response(
+            {'error': 'Please provide both username and password'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    user = authenticate(username=username, password=password)
+
+    if not user:
+        return Response(
+            {'error': 'Invalid Credentials'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+
+    token, created = Token.objects.get_or_create(user=user)
+    user_data = UserLoginSerializer(user).data
+    
+    return Response({
+        'token': token.key,
+        'user': user_data
+    })
+
+@api_view(['POST'])
+@drf_permission_classes([IsAuthenticated]) # Use IsAuthenticated from rest_framework.permissions
+def api_logout_view(request):
+    """
+    API endpoint for user logout.
+    Deletes the user's auth token.
+    """
+    try:
+        request.user.auth_token.delete()
+        return Response({'message': 'Successfully logged out.'}, status=status.HTTP_200_OK)
+    except (AttributeError, Token.DoesNotExist):
+        return Response({'error': 'No active session found or token already invalidated.'}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class DashboardAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        # Geral Stats
+        total_empresas = Empresa.objects.count()
+        total_projetos_count = Projeto.objects.count()
+        
+        placas96_count = Placa96.objects.count()
+        placas384_count = Placa384.objects.count()
+        placas1536_count = Placa1536.objects.count()
+        total_placas_geral = placas96_count + placas384_count + placas1536_count
+        
+        placa_stats_geral = {
+            'placas96': placas96_count,
+            'placas384': placas384_count,
+            'placas1536': placas1536_count,
+            'total': total_placas_geral
+        }
+
+        # Media marcadores por projeto & Total Datapoints
+        media_marcadores_sum = 0
+        projetos_com_marcadores_count = 0
+        total_datapoints_global = 0
+        
+        projetos_qs = Projeto.objects.prefetch_related('marcador_trait', 'marcador_customizado').all()
+        for p in projetos_qs:
+            marcadores_no_projeto = p.marcador_trait.count() + p.marcador_customizado.count()
+            total_datapoints_global += p.quantidade_amostras * marcadores_no_projeto
+            if marcadores_no_projeto > 0:
+                media_marcadores_sum += marcadores_no_projeto
+                projetos_com_marcadores_count += 1
+        
+        avg_marcadores = (media_marcadores_sum / projetos_com_marcadores_count) if projetos_com_marcadores_count > 0 else 0
+
+        geral_stats = {
+            'total_empresas': total_empresas,
+            'total_projetos': total_projetos_count,
+            'total_placas': placa_stats_geral,
+            'media_marcadores_por_projeto': avg_marcadores,
+            'total_datapoints': total_datapoints_global
+        }
+
+        # Datapoints por MarcadorTrait
+        dp_por_trait = []
+        for trait in MarcadorTrait.objects.prefetch_related('projeto_set').all():
+            datapoints = sum(p.quantidade_amostras for p in trait.projeto_set.all() if p.quantidade_amostras)
+            dp_por_trait.append({'nome': trait.nome, 'datapoints': datapoints})
+
+        # Datapoints por MarcadorCustomizado
+        dp_por_custom = []
+        for custom_marker in MarcadorCustomizado.objects.prefetch_related('projeto_set').all():
+            datapoints = sum(p.quantidade_amostras for p in custom_marker.projeto_set.all() if p.quantidade_amostras)
+            dp_por_custom.append({'nome': custom_marker.nome, 'datapoints': datapoints})
+
+        # Metricas por Empresa
+        metricas_empresa_list = []
+        empresas_qs = Empresa.objects.prefetch_related(
+            'projeto_set', 
+            'projeto_set__marcador_trait', 
+            'projeto_set__marcador_customizado'
+        ).all()
+
+        for empresa_obj in empresas_qs:
+            empresa_projetos = empresa_obj.projeto_set.all()
+            empresa_total_projetos = empresa_projetos.count()
+            empresa_total_amostras = sum(p.quantidade_amostras for p in empresa_projetos if p.quantidade_amostras)
+            
+            empresa_placas96 = Placa96.objects.filter(empresa=empresa_obj).count()
+            empresa_placas384 = Placa384.objects.filter(empresa=empresa_obj).count()
+            empresa_placas1536 = Placa1536.objects.filter(empresa=empresa_obj).count()
+            empresa_total_placas = empresa_placas96 + empresa_placas384 + empresa_placas1536
+
+            empresa_placa_stats = {
+                'placas96': empresa_placas96,
+                'placas384': empresa_placas384,
+                'placas1536': empresa_placas1536,
+                'total': empresa_total_placas
+            }
+            
+            empresa_total_datapoints = 0
+            for p in empresa_projetos:
+                 empresa_total_datapoints += (p.quantidade_amostras or 0) * \
+                                            (p.marcador_trait.count() + p.marcador_customizado.count())
+            
+            metricas_empresa_list.append({
+                'empresa_id': empresa_obj.id,
+                'empresa_nome': empresa_obj.nome,
+                'total_projetos': empresa_total_projetos,
+                'total_amostras': empresa_total_amostras,
+                'total_placas': empresa_placa_stats,
+                'total_datapoints': empresa_total_datapoints
+            })
+
+        dashboard_data = {
+            'geral': geral_stats,
+            'datapoints_por_marcador_trait': dp_por_trait,
+            'datapoints_por_marcador_customizado': dp_por_custom,
+            'metricas_por_empresa': metricas_empresa_list
+        }
+        
+        serializer = DashboardAPISerializer(dashboard_data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
