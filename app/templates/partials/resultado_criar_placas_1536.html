@@ -1,0 +1,31 @@
+<div class="card mt-4">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0">Resultado da criação de placas 1536</h5>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-success">
+            <h4 class="alert-heading">Sucesso!</h4>
+            <p>Placas 1536 criadas: {{ placas_1536|length }}</p>
+            
+            <div class="mt-4">
+                <h5>Placas 1536 criadas:</h5>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Código da Placa</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for placa in placas_1536 %}
+                            <tr>
+                                <td>{{ placa.codigo }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

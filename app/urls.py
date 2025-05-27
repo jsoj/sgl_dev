@@ -2,13 +2,17 @@ from django.urls import path
 from django.contrib.auth import views as auth_views
 from app.views import placa384_views, placa384_htmx
 from . import views
-from .views import api_views, project_views, projeto_pdf_views
+from .views import api_views, project_views, projeto_pdf_views, api_login_view
 
 
 urlpatterns = [
     # Autenticação
     path('login/', auth_views.LoginView.as_view(), name='login'),
     path('logout/', views.logout_view, name='logout'),
+    path('api/login/', api_login_view, name='api_login'),
+    path('api/logout/', api_views.api_logout_view, name='api_logout'),
+    path('api/dashboard/', api_views.DashboardAPIView.as_view(), name='api_dashboard'),
+
     
     # Páginas principais
     path('', views.home, name='home'),

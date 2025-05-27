@@ -1,0 +1,23 @@
+---
+config:
+      theme: redux
+---
+
+flowchart TD
+        A(["Usuário acessa a tela Criar Placas 384"]) --> |GET| B[URL: /criar-placas-384-htmx/
+        /]
+        B -->|Renderiza| C[Template: criar_placas_384_htmx.html]
+        C -->|Seleciona Empresa| D[Função: carregar_projetos_por_empresa]
+        D -->|GET| E[URL: /api/carregar-projetos-por-empresa/]
+        E -->|Retorna Projetos| F[Atualiza Dropdown de Projetos]
+        F -->|Seleciona Projeto| G[Função: carregar_placas_por_projeto]
+        G -->|GET| H[URL: /api/carregar-placas-por-projeto/]
+        H -->|Retorna Placas 96| I[Atualiza Lista de Placas 96]
+        I -->|Seleciona Placas e Clica em Criar Placas| J[Função: criar_placas_384_lote]
+        J -->|POST| K[URL: /criar-placas-384/]
+        K -->|Cria Placas 384| L[Função: Placa384.transfer_96_to_384]
+        L -->|Renderiza Resultado| M[Template: resultado_criar_placas_384.html]
+        M -->|Exibe Resultado| N([Fim do Processo])
+
+
+    
