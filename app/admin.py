@@ -1,3 +1,5 @@
+from rest_framework.authtoken.models import TokenProxy
+from rest_framework.authtoken.admin import TokenAdmin as AuthTokenTokenAdmin # Renomeie para evitar conflito
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 from .models import ResultadoAmostra384, ResultadoUpload384 
@@ -289,6 +291,7 @@ class CustomAdminSite(AdminSite):
 
 admin_site = CustomAdminSite(name='admin')
 admin_site.register(Group, GroupAdmin)
+admin_site.register(TokenProxy, AuthTokenTokenAdmin)
 User = get_user_model()
 
 class CustomUserAdmin(UserAdmin):
@@ -634,7 +637,7 @@ class Placa384Admin(admin.ModelAdmin):
        context = {
            'title': 'Transferir Placas 96 para 384',
            'opts': self.model._meta,
-           **admin.site.each_context(request),
+           **self.admin_site.each_context(request),
        }
 
        if request.method == 'POST':
@@ -688,7 +691,7 @@ class Placa384Admin(admin.ModelAdmin):
         context = {
             'title': 'Transferir Placa 384 para 384',
             'opts': self.model._meta,
-            **admin.site.each_context(request),
+            **self.admin_site.each_context(request),
         }
 
         if request.method == 'POST':
@@ -728,7 +731,7 @@ class Placa384Admin(admin.ModelAdmin):
         context = {
             'title': 'Transferir Placas 384 para 1536',
             'opts': self.model._meta,
-            **admin.site.each_context(request),
+            **self.admin_site.each_context(request),
         }
 
         if request.method == 'POST':
@@ -1291,14 +1294,12 @@ class ResultadoAmostra1536Resource(resources.ModelResource):
             'id',
             'empresa_codigo',
             'empresa_nome',
-            # 'projeto_codigo',
+            'projeto_codigo',  # Add this field to the whitelist
             'projeto_nome',
             'placa_1536',
             'poco_1536',
             'codigo_amostra',
             'barcode_cliente',
-            # 'upload_data',
-            # 'data_processamento',
             'resultado_fh',
             'resultado_aj',
             'coordenada_x_fh',
@@ -1424,8 +1425,6 @@ class ResultadoAmostra1536Admin(ImportExportModelAdmin):
 #-----------------------------------------------
 # UPLOADS E TRATAMETNO RESULTADOS PLACA 384 PHERASTAR  
 
-
-
 class ResultadoAmostra384Resource(resources.ModelResource):
     """
     Resource for import and export of ResultadoAmostra384
@@ -1497,9 +1496,6 @@ class ResultadoAmostra384Admin(ImportExportModelAdmin):
             'arquivo_upload'  # Only include this field as it's the only valid relational field
         )
 
-# Registrar o modelo e sua classe de administração
-admin.site.register(ResultadoAmostra384, ResultadoAmostra384Admin)
-
 class ResultadoUpload384Admin(admin.ModelAdmin):
     list_display = ('id', 'projeto', 'empresa', 'data_upload', 'processado', 'data_processamento', 'botao_processar')
     list_filter = ('processado', 'empresa', 'projeto')
@@ -1543,7 +1539,7 @@ class ResultadoUpload384Admin(admin.ModelAdmin):
         View para processar um arquivo de upload.
         """
         try:
-            from .servico import process_upload
+            from app.servico import process_upload # Corrected import path
             
             # Processar o arquivo
             stats = process_upload(upload_id)

@@ -1,3 +1,7 @@
+# Sistema de Gestão de Laboratório (SGL)
+
+## Estrutura do Projeto
+
 # SGL - Sistema de Gestão de Laboratório - V.1.0.6 - 03-05-2025
 ## AGROMARKERS
 

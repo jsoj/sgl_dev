@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class Empresa(models.Model):
     nome = models.CharField(max_length=100)
-    codigo = models.CharField(max_length=5)
+    codigo = models.CharField(max_length=5, unique=True)
     cnpj = models.CharField(max_length=14, unique=True)
     cep = models.CharField(max_length=10, blank=True, null=True)
     endereco = models.CharField(max_length=100, blank=True, null=True)
@@ -222,6 +222,7 @@ class Projeto(EmpresaMixin, models.Model):
     data_destruicao = models.DateField(blank=True, null=True)
     created_at = models.DateField(   auto_now_add=True)
     data_alteracao = models.DateField(  auto_now=True)
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='projetos_criados', editable=False)
     ativo = models.BooleanField(  
         editable=False,
         default=True)
@@ -790,16 +791,12 @@ class Projeto(EmpresaMixin, models.Model):
             print("Iniciando save do projeto")
             with transaction.atomic():
                 is_new = self.pk is None  # Verifica se é uma criação nova
-                user = kwargs.pop('user', None)
-                empresa = kwargs.pop('empresa', None)
                 
-                # Define a empresa se ainda não estiver definida
-                if not self.empresa_id:
-                    if empresa:
-                        self.empresa = empresa
-                    elif user and not user.is_superuser and user.empresa:
-                        self.empresa = user.empresa
-                
+                # A empresa e criado_por devem ser definidos antes de chamar este save,
+                # idealmente pelo serializer ou view que instancia o objeto.
+                # A lógica de kwargs.pop('user', None) e kwargs.pop('empresa', None)
+                # foi removida pois não é padrão e não seria populada pelo DRF.
+
                 # Primeiro salva o projeto
                 super().save(*args, **kwargs)
                 print(f"Projeto salvo com ID: {self.pk}")
@@ -1105,6 +1102,7 @@ class Placa384(EmpresaMixin, models.Model):
                 # Criar mapeamento
                 PlacaMap384to384.objects.create(
                     empresa=self.empresa,
+                    projeto=self.projeto,
                     placa_origem=self,
                     placa_destino=placa_destino
                 )

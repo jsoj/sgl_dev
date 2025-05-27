@@ -17,6 +17,9 @@ static/
 temp/
 migrations/
 media/
+scripts/
+backups/
+frontend/
 
 # IDE
 .idea/

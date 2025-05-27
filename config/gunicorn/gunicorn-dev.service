@@ -1,0 +1,30 @@
+[Unit]
+Description=Gunicorn daemon for dev.agromarkers.com.br
+After=network.target
+
+[Service]
+User=root
+Group=root
+RuntimeDirectory=gunicorn
+WorkingDirectory=/var/www/dev
+Environment="PATH=/var/www/dev/venv/bin"
+Environment="PYTHONPATH=/var/www/dev"
+Environment="DB_PASSWORD=Jsoj@3105"
+ExecStart=/var/www/dev/venv/bin/python3 /var/www/dev/venv/bin/gunicorn \
+          --access-logfile /var/log/gunicorn/dev-access.log \
+          --error-logfile /var/log/gunicorn/dev-error.log \
+          --workers 3 \
+          --timeout 600 \
+          --graceful-timeout 300 \
+          --keep-alive 65 \
+          --worker-class sync \
+          --max-requests 1000 \
+          --max-requests-jitter 50 \
+          --bind 127.0.0.1:8004 \
+          SGL.wsgi:application
+
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
