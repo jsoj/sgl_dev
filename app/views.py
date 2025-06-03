@@ -19,7 +19,6 @@ from .serializers import GroupSerializer, UserSerializer
 from django.contrib.admin.views.decorators import staff_member_required
 from .models import Placa384, Projeto, Placa96, Empresa, Placa1536, ResultadoUpload384, Placa1536
 from .servico import processar_arquivo_384
-from . import generate_project_pdf  # Importa a função que corrigimos
 
 User = get_user_model()
 

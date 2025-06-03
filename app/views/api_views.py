@@ -5,20 +5,17 @@ from django.contrib.auth.models import Group
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes as drf_permission_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated # IsAuthenticated is used for logout
+from rest_framework.views import APIView # Fixed this line - removed incorrect import
 from rest_framework.authtoken.models import Token
-from app.serializers import UserSerializer, GroupSerializer, UserLoginSerializer
-from app.models import Projeto, Placa96, Empresa, Placa1536
-from django.db.models import Sum, Count, Avg, F # Ensure F is imported
-from rest_framework.views import APIView # Ensure APIView is imported
-from app.serializers import ( # Import new dashboard serializers
-    DashboardAPISerializer,
-    DashboardGeralSerializer,
-    DashboardPlacaStatsSerializer,
-    DashboardDatapointsPorMarcadorSerializer,
-    DashboardEmpresaStatsSerializer
-)
-from app.models import MarcadorTrait, MarcadorCustomizado, Placa384 # Import necessary models
+from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+
+from ..models import Projeto, Placa96, Placa384, Placa1536, Empresa, Cultivo, Tecnologia, MarcadorTrait, MarcadorCustomizado, Status, Etapa
+from ..serializers import UserSerializer, GroupSerializer, UserLoginSerializer, DashboardAPISerializer, EmpresaSerializer, ProjetoSerializer
+from app.models import MarcadorTrait, MarcadorCustomizado
+
+from rest_framework import serializers as drf_serializers
+from ..models import Cultivo, Status, Etapa, Tecnologia # Removed MarcadorTrait, MarcadorCustomizado as they are imported from app.models
 
 
 User = get_user_model()
@@ -34,6 +31,146 @@ class GroupViewSet(viewsets.ModelViewSet):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+# Serializers for new models
+# Ideally, these would be in a separate app/serializers.py file
+
+class CultivoSerializer(drf_serializers.ModelSerializer):
+    class Meta:
+        model = Cultivo
+        fields = '__all__'
+
+class StatusSerializer(drf_serializers.ModelSerializer):
+    class Meta:
+        model = Status
+        fields = '__all__'
+
+class EtapaSerializer(drf_serializers.ModelSerializer):
+    class Meta:
+        model = Etapa
+        fields = '__all__'
+
+class TecnologiaSerializer(drf_serializers.ModelSerializer):
+    class Meta:
+        model = Tecnologia
+        fields = '__all__'
+
+class MarcadorTraitSerializer(drf_serializers.ModelSerializer):
+    class Meta:
+        model = MarcadorTrait
+        fields = '__all__'
+
+class MarcadorCustomizadoSerializer(drf_serializers.ModelSerializer):
+    class Meta:
+        model = MarcadorCustomizado
+        fields = '__all__'
+
+# ViewSets for new models
+
+class ProjetoViewSet(viewsets.ModelViewSet):
+    """API endpoint que permite visualizar ou editar projetos."""
+    queryset = Projeto.objects.all().select_related('empresa', 'cultivo', 'status', 'etapa').prefetch_related('marcador_trait', 'marcador_customizado')
+    serializer_class = ProjetoSerializer
+    authentication_classes = [SessionAuthentication, TokenAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    # Adicione este método para garantir que OPTIONS requests funcionem corretamente com CORS
+    def get_permissions(self):
+        if self.request.method == 'OPTIONS':
+            return []
+        return super().get_permissions()
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = Projeto.objects.all().select_related('empresa', 'cultivo', 'status', 'etapa').prefetch_related('marcador_trait', 'marcador_customizado')
+        
+        # Filter by empresa_id from query parameters if provided
+        empresa_id = self.request.query_params.get('empresa', None)
+        if empresa_id:
+            queryset = queryset.filter(empresa_id=empresa_id)
+        
+        # Apply user permissions filtering
+        if not user.is_superuser:
+            # For non-superusers, filter by their associated empresa(s)
+            if hasattr(user, 'empresa') and user.empresa:  # Single empresa
+                queryset = queryset.filter(empresa=user.empresa)
+            elif hasattr(user, 'empresas') and user.empresas.exists():  # Multiple empresas (ManyToMany)
+                queryset = queryset.filter(empresa__in=user.empresas.all())
+            else:
+                queryset = Projeto.objects.none()  # No access if no empresa is associated
+        
+        return queryset
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        empresa = serializer.validated_data.get('empresa')
+        
+        if not user.is_superuser:
+            # Ensure non-superuser can only create for their own company
+            user_empresa = getattr(user, 'empresa', None)
+            if not user_empresa:
+                 # If user has multiple companies, one must be specified in the request
+                 if hasattr(user, 'empresas') and not empresa:
+                     raise drf_serializers.ValidationError("Empresa é obrigatória para este usuário.")
+                 elif hasattr(user, 'empresas') and empresa not in user.empresas.all():
+                     raise drf_serializers.ValidationError("Usuário não tem permissão para criar projetos para esta empresa.")
+                 elif not hasattr(user, 'empresas'): # Should not happen if user.empresa is also checked
+                     raise drf_serializers.ValidationError("Usuário não associado a nenhuma empresa.")
+
+            elif empresa and empresa != user_empresa:
+                 raise drf_serializers.ValidationError("Usuário não tem permissão para criar projetos para esta empresa.")
+            elif not empresa: # If empresa not provided, assign user's empresa
+                 serializer.validated_data['empresa'] = user_empresa
+
+        serializer.save(criado_por=user)
+
+class EmpresaViewSet(viewsets.ModelViewSet):
+    """API endpoint que permite visualizar ou editar empresas."""
+    queryset = Empresa.objects.all()
+    serializer_class = EmpresaSerializer
+    authentication_classes = [SessionAuthentication, TokenAuthentication] # Explicitly add SessionAuthentication
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        # Overriding get_queryset to filter by user's companies
+        if self.request.user.is_superuser:
+            return Empresa.objects.all()
+        return Empresa.objects.filter(id__in=self.request.user.empresas.values_list('id', flat=True))
+
+class CultivoViewSet(viewsets.ModelViewSet):
+    queryset = Cultivo.objects.all()
+    serializer_class = CultivoSerializer
+    authentication_classes = [SessionAuthentication, TokenAuthentication] # Added for consistency
+    permission_classes = [permissions.IsAuthenticated]
+
+class StatusViewSet(viewsets.ModelViewSet):
+    queryset = Status.objects.all()
+    serializer_class = StatusSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class EtapaViewSet(viewsets.ModelViewSet):
+    queryset = Etapa.objects.all()
+    serializer_class = EtapaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class TecnologiaViewSet(viewsets.ModelViewSet):
+    queryset = Tecnologia.objects.all()
+    serializer_class = TecnologiaSerializer
+    authentication_classes = [SessionAuthentication, TokenAuthentication] # Added for consistency
+    permission_classes = [permissions.IsAuthenticated]
+
+class MarcadorTraitViewSet(viewsets.ModelViewSet):
+    queryset = MarcadorTrait.objects.all()
+    serializer_class = MarcadorTraitSerializer
+    authentication_classes = [SessionAuthentication, TokenAuthentication] # Added for consistency
+    permission_classes = [permissions.IsAuthenticated]
+
+class MarcadorCustomizadoViewSet(viewsets.ModelViewSet):
+    queryset = MarcadorCustomizado.objects.all()
+    serializer_class = MarcadorCustomizadoSerializer
+    authentication_classes = [SessionAuthentication, TokenAuthentication] # Added for consistency
+    permission_classes = [permissions.IsAuthenticated]
+
 
 @login_required
 def get_projetos(request, empresa_id):

@@ -1,11 +1,32 @@
-from django.urls import path
+from django.urls import path, include # Add include
 from django.contrib.auth import views as auth_views
 from app.views import placa384_views, placa384_htmx
 from . import views
 from .views import api_views, project_views, projeto_pdf_views, api_login_view
+from rest_framework.routers import DefaultRouter
+from .views.debug_view import debug_view
 
+# Create a router and register our viewsets with it.
+router = DefaultRouter()
+router.register(r'users', api_views.UserViewSet, basename='user')
+router.register(r'groups', api_views.GroupViewSet, basename='group')
+router.register(r'empresa', api_views.EmpresaViewSet, basename='empresa') # Changed 'empresas' to 'empresa'
+router.register(r'cultivos', api_views.CultivoViewSet, basename='cultivo')
+router.register(r'statuses', api_views.StatusViewSet, basename='status')
+router.register(r'etapas', api_views.EtapaViewSet, basename='etapa')
+router.register(r'tecnologias', api_views.TecnologiaViewSet, basename='tecnologia')
+router.register(r'marcador-traits', api_views.MarcadorTraitViewSet, basename='marcadortrait')
+router.register(r'marcador-customizados', api_views.MarcadorCustomizadoViewSet, basename='marcadorcustomizado')
+router.register(r'projetos', api_views.ProjetoViewSet, basename='projeto') # Added ProjetoViewSet
+# Register other viewsets for other models here following the same pattern
 
 urlpatterns = [
+    # Debug URL - keep this at the beginning of urlpatterns
+    path('debug/', debug_view, name='debug_view'),
+
+    # API router URLS
+    path('api/', include(router.urls)), # Add this line for DRF router
+
     # Autenticação
     path('login/', auth_views.LoginView.as_view(), name='login'),
     path('logout/', views.logout_view, name='logout'),

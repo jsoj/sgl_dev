@@ -3,6 +3,7 @@ barcode==1.0.4
 chardet==5.2.0
 diff-match-patch==20241021
 Django==5.1.5
+django-cors-headers==4.7.0
 django-crispy-forms==2.3
 django-filter==24.3
 django-import-export==4.3.5

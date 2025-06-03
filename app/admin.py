@@ -1,3 +1,5 @@
+from rest_framework.authtoken.models import TokenProxy
+from rest_framework.authtoken.admin import TokenAdmin as AuthTokenTokenAdmin # Renomeie para evitar conflito
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 from .models import ResultadoAmostra384, ResultadoUpload384 
@@ -26,6 +28,10 @@ from import_export import resources, fields
 from import_export.widgets import ForeignKeyWidget
 from django.urls import path, reverse
 import csv
+from estoque.models import ( # Supondo que seu app de estoque se chama 'estoque'
+    UnidadeMedida, CategoriaProduto, Fornecedor, LocalEstoque,
+    Produto, ItemEstoque, MovimentacaoEstoque
+)
 
 import logging
 import traceback
@@ -36,6 +42,299 @@ from .servico import processar_arquivo_384
 
 
 logger = logging.getLogger(__name__)
+
+#-----------------------------------------------
+# RESOURCES - Add new resources here
+#-----------------------------------------------
+
+class UserResource(resources.ModelResource):
+    class Meta:
+        model = User
+        # Add fields you want to import/export, e.g.,
+        fields = ('id', 'username', 'first_name', 'last_name', 'email', 'telefone', 'empresa', 'is_active', 'is_staff', 'is_superuser')
+        # Add ForeignKeyWidget for 'empresa' if needed for import by name/code
+        # widgets = {
+        # 'empresa': {'field': 'nome'}, # or 'codigo'
+        # }
+
+class EmpresaResource(resources.ModelResource):
+    class Meta:
+        model = Empresa
+        fields = ('id', 'nome', 'codigo', 'cnpj', 'cep', 'endereco', 'complemento', 'bairro', 'cidade', 'estado', 'telefone', 'email', 'is_active', 'data_cadastro')
+
+class ProjetoResource(resources.ModelResource):
+    empresa = fields.Field(
+        column_name='empresa_codigo',
+        attribute='empresa',
+        widget=ForeignKeyWidget(Empresa, 'codigo'))
+    cultivo = fields.Field(
+        column_name='cultivo_nome',
+        attribute='cultivo',
+        widget=ForeignKeyWidget(Cultivo, 'nome'))
+    status = fields.Field(
+        column_name='status_nome',
+        attribute='status',
+        widget=ForeignKeyWidget(Status, 'nome'))
+    etapa = fields.Field(
+        column_name='etapa_nome',
+        attribute='etapa',
+        widget=ForeignKeyWidget(Etapa, 'nome'))
+
+    class Meta:
+        model = Projeto
+        fields = ('id', 'empresa', 'codigo_projeto', 'responsavel', 'quantidade_amostras', 
+                  'numero_placas_96', 'placas_inicial', 'placas_final', 'cultivo', 
+                  'origem_amostra', 'tecnologia_parental1', 'tecnologia_parental2', 
+                  'tecnologia_target', 'proporcao', 'marcador_trait', 'marcador_customizado',
+                  'quantidade_traits', 'quantidade_marcador_customizado', 'status', 'etapa',
+                  'nome_projeto_cliente', 'prioridade', 'codigo_ensaio', 'setor_cliente',
+                  'local_cliente', 'ano_plantio_ensaio', 'tipo_amostra', 'herbicida',
+                  'marcador_analisado', 'se_marcador_analisado', 'data_planejada_envio',
+                  'data_envio', 'data_planejada_liberacao_resultados', 
+                  'data_recebimento_laboratorio', 'data_liberacao_resultados', 
+                  'data_validacao_cliente', 'data_prevista_destruicao', 'data_destruicao',
+                  'created_at', 'data_alteracao', 'criado_por', 'ativo', 'destruido', 'comentarios')
+        # Add widgets for ForeignKey fields if needed for import by name/code
+
+class Placa96Resource(resources.ModelResource):
+    empresa = fields.Field(
+        column_name='empresa_codigo',
+        attribute='empresa',
+        widget=ForeignKeyWidget(Empresa, 'codigo'))
+    projeto = fields.Field(
+        column_name='projeto_codigo',
+        attribute='projeto',
+        widget=ForeignKeyWidget(Projeto, 'codigo_projeto')) # Assumes codigo_projeto is unique per empresa
+    class Meta:
+        model = Placa96
+        fields = ('id', 'empresa', 'projeto', 'codigo_placa', 'data_criacao', 'observacoes', 'is_active')
+
+class Placa384Resource(resources.ModelResource):
+    empresa = fields.Field(
+        column_name='empresa_codigo',
+        attribute='empresa',
+        widget=ForeignKeyWidget(Empresa, 'codigo'))
+    projeto = fields.Field(
+        column_name='projeto_codigo',
+        attribute='projeto',
+        widget=ForeignKeyWidget(Projeto, 'codigo_projeto'))
+    class Meta:
+        model = Placa384
+        fields = ('id', 'empresa', 'projeto', 'codigo_placa', 'data_criacao', 'observacoes', 'is_active')
+
+class Placa1536Resource(resources.ModelResource):
+    empresa = fields.Field(
+        column_name='empresa_codigo',
+        attribute='empresa',
+        widget=ForeignKeyWidget(Empresa, 'codigo'))
+    projeto = fields.Field(
+        column_name='projeto_codigo',
+        attribute='projeto',
+        widget=ForeignKeyWidget(Projeto, 'codigo_projeto'))
+    class Meta:
+        model = Placa1536
+        fields = ('id', 'empresa', 'projeto', 'codigo_placa', 'data_criacao', 'observacoes', 'is_active')
+
+class PlacaMap384Resource(resources.ModelResource):
+    empresa = fields.Field(
+        column_name='empresa_codigo',
+        attribute='empresa',
+        widget=ForeignKeyWidget(Empresa, 'codigo'))
+    projeto = fields.Field(
+        column_name='projeto_codigo',
+        attribute='projeto',
+        widget=ForeignKeyWidget(Projeto, 'codigo_projeto'))
+    placa_origem = fields.Field(
+        column_name='placa_origem_codigo',
+        attribute='placa_origem',
+        widget=ForeignKeyWidget(Placa96, 'codigo_placa'))
+    placa_destino = fields.Field(
+        column_name='placa_destino_codigo',
+        attribute='placa_destino',
+        widget=ForeignKeyWidget(Placa384, 'codigo_placa'))
+    class Meta:
+        model = PlacaMap384
+        fields = ('id', 'empresa', 'projeto', 'placa_origem', 'placa_destino', 'quadrante')
+
+class PlacaMap1536Resource(resources.ModelResource):
+    empresa = fields.Field(
+        column_name='empresa_codigo',
+        attribute='empresa',
+        widget=ForeignKeyWidget(Empresa, 'codigo'))
+    projeto = fields.Field(
+        column_name='projeto_codigo',
+        attribute='projeto',
+        widget=ForeignKeyWidget(Projeto, 'codigo_projeto'))
+    placa_origem = fields.Field(
+        column_name='placa_origem_codigo',
+        attribute='placa_origem',
+        widget=ForeignKeyWidget(Placa384, 'codigo_placa'))
+    placa_destino = fields.Field(
+        column_name='placa_destino_codigo',
+        attribute='placa_destino',
+        widget=ForeignKeyWidget(Placa1536, 'codigo_placa'))
+    class Meta:
+        model = PlacaMap1536
+        fields = ('id', 'empresa', 'projeto', 'placa_origem', 'placa_destino', 'quadrante')
+
+class PlacaMap384to384Resource(resources.ModelResource):
+    empresa = fields.Field(
+        column_name='empresa_codigo',
+        attribute='empresa',
+        widget=ForeignKeyWidget(Empresa, 'codigo'))
+    projeto = fields.Field(
+        column_name='projeto_codigo',
+        attribute='projeto',
+        widget=ForeignKeyWidget(Projeto, 'codigo_projeto'))
+    placa_origem = fields.Field(
+        column_name='placa_origem_codigo',
+        attribute='placa_origem',
+        widget=ForeignKeyWidget(Placa384, 'codigo_placa'))
+    placa_destino = fields.Field(
+        column_name='placa_destino_codigo',
+        attribute='placa_destino',
+        widget=ForeignKeyWidget(Placa384, 'codigo_placa'))
+    class Meta:
+        model = PlacaMap384to384
+        fields = ('id', 'empresa', 'projeto', 'placa_origem', 'placa_destino', 'data_transferencia')
+
+class CultivoResource(resources.ModelResource):
+    class Meta:
+        model = Cultivo
+        fields = ('id', 'nome', 'nome_cientifico', 'data_cadastro', 'is_active')
+
+class TecnologiaResource(resources.ModelResource):
+    class Meta:
+        model = Tecnologia
+        fields = ('id', 'nome', 'caracteristica', 'vencimento_patente', 'data_cadastro', 'is_active')
+
+class MarcadorTraitResource(resources.ModelResource):
+    cultivo = fields.Field(
+        column_name='cultivo_nome',
+        attribute='cultivo',
+        widget=ForeignKeyWidget(Cultivo, 'nome'))
+    class Meta:
+        model = MarcadorTrait
+        fields = ('id', 'cultivo', 'nome', 'caracteristica', 'data_cadastro', 'is_active')
+
+class MarcadorCustomizadoResource(resources.ModelResource):
+    cultivo = fields.Field(
+        column_name='cultivo_nome',
+        attribute='cultivo',
+        widget=ForeignKeyWidget(Cultivo, 'nome'))
+    class Meta:
+        model = MarcadorCustomizado
+        fields = ('id', 'cultivo', 'nome', 'caracteristica', 'data_cadastro', 'is_active')
+
+class StatusResource(resources.ModelResource):
+    class Meta:
+        model = Status
+        fields = ('id', 'nome', 'is_active')
+
+class EtapaResource(resources.ModelResource):
+    class Meta:
+        model = Etapa
+        fields = ('id', 'nome', 'is_active')
+
+class ResultadoUpload1536Resource(resources.ModelResource):
+    empresa = fields.Field(
+        column_name='empresa_codigo',
+        attribute='empresa',
+        widget=ForeignKeyWidget(Empresa, 'codigo'))
+    projeto = fields.Field(
+        column_name='projeto_codigo',
+        attribute='projeto',
+        widget=ForeignKeyWidget(Projeto, 'codigo_projeto'))
+    placa_1536 = fields.Field(
+        column_name='placa_1536_codigo',
+        attribute='placa_1536',
+        widget=ForeignKeyWidget(Placa1536, 'codigo_placa'))
+    class Meta:
+        model = ResultadoUpload1536
+        fields = ('id', 'empresa', 'projeto', 'placa_1536', 'arquivo', 'data_upload', 'processado', 'marcador_fh', 'marcador_aj')
+
+class ResultadoUpload384Resource(resources.ModelResource):
+    empresa = fields.Field(
+        column_name='empresa_codigo',
+        attribute='empresa',
+        widget=ForeignKeyWidget(Empresa, 'codigo'))
+    projeto = fields.Field(
+        column_name='projeto_codigo',
+        attribute='projeto',
+        widget=ForeignKeyWidget(Projeto, 'codigo_projeto'))
+    class Meta:
+        model = ResultadoUpload384
+        fields = ('id', 'projeto', 'empresa', 'empresa_codigo', 'empresa_nome', 'arquivo', 'data_upload', 'processado', 'data_processamento')
+
+
+# ESTOQUE RESOURCES
+class UnidadeMedidaResource(resources.ModelResource):
+    class Meta:
+        model = UnidadeMedida
+        fields = ('id', 'nome', 'simbolo')
+
+class CategoriaProdutoResource(resources.ModelResource):
+    class Meta:
+        model = CategoriaProduto
+        fields = ('id', 'nome', 'descricao')
+
+class FornecedorResource(resources.ModelResource):
+    class Meta:
+        model = Fornecedor
+        fields = ('id', 'nome', 'contato', 'telefone', 'email', 'endereco')
+
+class LocalEstoqueResource(resources.ModelResource):
+    class Meta:
+        model = LocalEstoque
+        fields = ('id', 'nome', 'descricao')
+
+class ProdutoResource(resources.ModelResource):
+    categoria = fields.Field(
+        column_name='categoria_nome',
+        attribute='categoria',
+        widget=ForeignKeyWidget(CategoriaProduto, 'nome'))
+    unidade_medida_primaria = fields.Field(
+        column_name='unidade_medida_primaria_simbolo',
+        attribute='unidade_medida_primaria',
+        widget=ForeignKeyWidget(UnidadeMedida, 'simbolo'))
+    fornecedor_principal = fields.Field(
+        column_name='fornecedor_principal_nome',
+        attribute='fornecedor_principal',
+        widget=ForeignKeyWidget(Fornecedor, 'nome'))
+    class Meta:
+        model = Produto
+        fields = ('id', 'nome_padrao', 'descricao', 'sku', 'categoria', 'unidade_medida_primaria', 'fornecedor_principal', 'nome_alternativo_fornecedor', 'codigo_fornecedor', 'preco_compra_padrao', 'data_ultima_compra', 'ativo')
+
+class ItemEstoqueResource(resources.ModelResource):
+    produto = fields.Field(
+        column_name='produto_nome',
+        attribute='produto',
+        widget=ForeignKeyWidget(Produto, 'nome_padrao'))
+    local = fields.Field(
+        column_name='local_nome',
+        attribute='local',
+        widget=ForeignKeyWidget(LocalEstoque, 'nome'))
+    class Meta:
+        model = ItemEstoque
+        fields = ('id', 'produto', 'local', 'quantidade', 'saldo_minimo', 'saldo_maximo', 'data_entrada', 'data_vencimento', 'lote', 'ultima_atualizacao')
+
+class MovimentacaoEstoqueResource(resources.ModelResource):
+    item_estoque = fields.Field(
+        column_name='item_estoque_identificador', # You might need a better way to identify item_estoque
+        attribute='item_estoque',
+        widget=ForeignKeyWidget(ItemEstoque, 'id')) # Or a combination of produto and local
+    unidade_medida_movimentacao = fields.Field(
+        column_name='unidade_medida_movimentacao_simbolo',
+        attribute='unidade_medida_movimentacao',
+        widget=ForeignKeyWidget(UnidadeMedida, 'simbolo'))
+    usuario = fields.Field(
+        column_name='usuario_username',
+        attribute='usuario',
+        widget=ForeignKeyWidget(User, 'username'))
+    class Meta:
+        model = MovimentacaoEstoque
+        fields = ('id', 'item_estoque', 'tipo_movimentacao', 'quantidade_movimentada', 'unidade_medida_movimentacao', 'quantidade_convertida', 'data_movimentacao', 'usuario', 'notas')
+
 
 #-----------------------------------------------
 # FILTROS
@@ -258,6 +557,20 @@ class CustomAdminSite(AdminSite):
                     'Usuário': 'app.user',
                 },
             },
+            # NOVO GRUPO PARA ESTOQUE
+            'Estoque': {
+                'models': {
+                    'Unidades de Medida': 'estoque.unidademedida',
+                    'Categorias de Produto': 'estoque.categoriaproduto',
+                    'Fornecedores': 'estoque.fornecedor',
+                    'Locais de Estoque': 'estoque.localestoque',
+                    'Produtos': 'estoque.produto',
+                    'Itens em Estoque': 'estoque.itemestoque',
+                    'Movimentações de Estoque': 'estoque.movimentacaoestoque',
+                }
+            },
+            # FIM DO NOVO GRUPO
+
             'Configurações': {
                 'models': {
                     'Grupos de Usuários': 'auth.group',
@@ -289,9 +602,11 @@ class CustomAdminSite(AdminSite):
 
 admin_site = CustomAdminSite(name='admin')
 admin_site.register(Group, GroupAdmin)
+admin_site.register(TokenProxy, AuthTokenTokenAdmin)
 User = get_user_model()
 
-class CustomUserAdmin(UserAdmin):
+class CustomUserAdmin(ImportExportModelAdmin, UserAdmin): # MODIFIED
+    resource_class = UserResource # ADDED
     list_display = ('username', 'email', 'empresa', 'empresa__nome','is_staff', 'is_active')
     list_filter = ('is_staff', 'is_active', 'groups', 'empresa')
     search_fields = ('username', 'first_name', 'last_name', 'email')
@@ -322,7 +637,8 @@ class CustomUserAdmin(UserAdmin):
             kwargs["initial"] = request.user.empresa
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
-class EmpresaAdmin(admin.ModelAdmin):
+class EmpresaAdmin(ImportExportModelAdmin, admin.ModelAdmin): # MODIFIED
+    resource_class = EmpresaResource # ADDED
     list_display = ('codigo', 'nome', 'cnpj', 'is_active', 'data_cadastro')
     list_filter = ('is_active',)
     search_fields = ('nome', 'codigo', 'cnpj')
@@ -359,7 +675,8 @@ class EmpresaAdminMixin:
                 list_filter.append('empresa')
         return list_filter
 
-class ProjetoAdmin(EmpresaAdminMixin, admin.ModelAdmin):
+class ProjetoAdmin(ImportExportModelAdmin, EmpresaAdminMixin, admin.ModelAdmin): # MODIFIED
+    resource_class = ProjetoResource # ADDED
     list_display = ('empresa__codigo','empresa__nome','codigo_projeto', 'quantidade_amostras', 'status', 'cultivo', 'created_at')
     list_display_links = ["codigo_projeto"]
     list_filter = (EmpresaFilter,ProjetoFilter,'empresa','codigo_projeto', 'status', 'cultivo')  # Empresa primeiro para facilitar filtragem
@@ -422,9 +739,18 @@ class ResultadoAmostra1536Inline(admin.TabularInline):
 # AMOSTRA
 
 class AmostraResource(resources.ModelResource):
+    empresa = fields.Field(
+        column_name='empresa_codigo',
+        attribute='projeto__empresa',
+        widget=ForeignKeyWidget(Empresa, 'codigo'))
+    projeto = fields.Field(
+        column_name='projeto_codigo',
+        attribute='projeto',
+        widget=ForeignKeyWidget(Projeto, 'codigo_projeto'))
+
     class Meta:
         model = Amostra
-        fields = ('codigo_amostra', 'barcode_cliente')
+        fields = ('id', 'empresa', 'projeto', 'codigo_amostra', 'barcode_cliente', 'data_cadastro')
         import_id_fields = ['codigo_amostra']
         skip_unchanged = True
         use_bulk = True
@@ -462,7 +788,8 @@ class AmostraAdmin(ImportExportModelAdmin):
 
 #-----------------------------------------------
 # Placas
-class Placa96Admin(EmpresaAdminMixin, admin.ModelAdmin):
+class Placa96Admin(ImportExportModelAdmin, EmpresaAdminMixin, admin.ModelAdmin): # MODIFIED
+    resource_class = Placa96Resource # ADDED
     list_display = ('empresa__codigo', 'empresa__nome','projeto','codigo_placa', 'get_amostras_count',  'data_criacao', 'is_active')
     list_display_links=['codigo_placa']
     list_filter = (EmpresaFilter, ProjetoFilter,  'data_criacao', 'is_active')
@@ -474,7 +801,8 @@ class Placa96Admin(EmpresaAdminMixin, admin.ModelAdmin):
 
         return super().get_queryset(request).select_related('projeto', 'empresa')
 
-class Placa384Admin(admin.ModelAdmin):
+class Placa384Admin(ImportExportModelAdmin, admin.ModelAdmin): # MODIFIED
+   resource_class = Placa384Resource # ADDED
    list_display = ('empresa__codigo', 'empresa__nome','projeto','codigo_placa', 'get_amostras_count', 'data_criacao', 'is_active')
    list_display_links=['codigo_placa']
    list_filter = (EmpresaFilter, ProjetoFilter, 'codigo_placa','is_active')
@@ -634,7 +962,7 @@ class Placa384Admin(admin.ModelAdmin):
        context = {
            'title': 'Transferir Placas 96 para 384',
            'opts': self.model._meta,
-           **admin.site.each_context(request),
+           **self.admin_site.each_context(request),
        }
 
        if request.method == 'POST':
@@ -688,7 +1016,7 @@ class Placa384Admin(admin.ModelAdmin):
         context = {
             'title': 'Transferir Placa 384 para 384',
             'opts': self.model._meta,
-            **admin.site.each_context(request),
+            **self.admin_site.each_context(request),
         }
 
         if request.method == 'POST':
@@ -728,7 +1056,7 @@ class Placa384Admin(admin.ModelAdmin):
         context = {
             'title': 'Transferir Placas 384 para 1536',
             'opts': self.model._meta,
-            **admin.site.each_context(request),
+            **self.admin_site.each_context(request),
         }
 
         if request.method == 'POST':
@@ -829,7 +1157,8 @@ class Placa384Admin(admin.ModelAdmin):
         extra_context['show_transfer_button'] = True
         return super().changelist_view(request, extra_context)
 
-class Placa1536Admin(EmpresaAdminMixin, admin.ModelAdmin):
+class Placa1536Admin(ImportExportModelAdmin, EmpresaAdminMixin, admin.ModelAdmin): # MODIFIED
+    resource_class = Placa1536Resource # ADDED
     list_display = ('empresa__codigo', 'empresa__nome','projeto', 'codigo_placa', 'get_amostras_count','data_criacao',  'is_active')
     list_display_links=['codigo_placa']
     list_filter = (EmpresaFilter, ProjetoFilter,  'data_criacao', 'is_active')
@@ -849,7 +1178,8 @@ class Placa1536Admin(EmpresaAdminMixin, admin.ModelAdmin):
 #-----------------------------------------------
 # Mapeamentos
 
-class PlacaMap384Admin(EmpresaAdminMixin, admin.ModelAdmin):
+class PlacaMap384Admin(ImportExportModelAdmin, EmpresaAdminMixin, admin.ModelAdmin): # MODIFIED
+    resource_class = PlacaMap384Resource # ADDED
     list_display = ('empresa', 'empresa__nome', 'placa_origem', 'placa_destino', 'quadrante')
     list_display_links=['placa_origem']
     list_filter = (EmpresaFilter, ProjetoFilterMap, PlacaOrigemFilter, PlacaDestinoFilter)
@@ -865,7 +1195,8 @@ class PlacaMap384Admin(EmpresaAdminMixin, admin.ModelAdmin):
             'placa_origem__projeto', 'placa_destino__projeto'
         )
 
-class PlacaMap1536Admin(EmpresaAdminMixin, admin.ModelAdmin):
+class PlacaMap1536Admin(ImportExportModelAdmin, EmpresaAdminMixin, admin.ModelAdmin): # MODIFIED
+    resource_class = PlacaMap1536Resource # ADDED
     list_display = ('empresa', 'empresa__nome', 'placa_origem', 'placa_destino', 'quadrante')  
     list_display_links=['placa_origem']
     list_filter = (EmpresaFilter, ProjetoFilterMap, PlacaOrigemFilter, PlacaDestinoFilter)
@@ -881,7 +1212,8 @@ class PlacaMap1536Admin(EmpresaAdminMixin, admin.ModelAdmin):
             'placa_origem__projeto', 'placa_destino__projeto'
         )
 
-class PlacaMap384to384Admin(EmpresaAdminMixin, admin.ModelAdmin):
+class PlacaMap384to384Admin(ImportExportModelAdmin, EmpresaAdminMixin, admin.ModelAdmin): # MODIFIED
+    resource_class = PlacaMap384to384Resource # ADDED
     list_display = ('empresa', 'empresa__nome', 'placa_origem', 'placa_destino', 'data_transferencia')
     list_display_links=['placa_origem']
     list_filter = (EmpresaFilter, ProjetoFilterMap, PlacaOrigemFilter, PlacaDestinoFilter)
@@ -981,8 +1313,9 @@ class Poco1536Admin(EmpresaAdminMixin, ImportExportModelAdmin):
 
 ########### Cadastros
 
-class ModeloBaseAdmin(admin.ModelAdmin):
+class ModeloBaseAdmin(ImportExportModelAdmin, admin.ModelAdmin): # MODIFIED
     """Classe base para administração de modelos com campo is_active"""
+    # resource_class will be defined in child classes
     list_display = ('nome', 'is_active')
     list_filter = ('is_active',)
     search_fields = ('nome',)
@@ -998,33 +1331,7 @@ class ModeloBaseAdmin(admin.ModelAdmin):
         self.message_user(request, f"{queryset.count()} registros desativados com sucesso.")
     desativar.short_description = "Desativar registros selecionados"
 
-@admin.register(Empresa)
-class EmpresaAdmin(ModeloBaseAdmin):
-    pass
 
-@admin.register(Cultivo)
-class CultivoAdmin(ModeloBaseAdmin):
-    pass
-
-@admin.register(Tecnologia)
-class TecnologiaAdmin(ModeloBaseAdmin):
-    pass
-
-@admin.register(MarcadorTrait)
-class MarcadorTraitAdmin(ModeloBaseAdmin):
-    pass
-
-@admin.register(MarcadorCustomizado)
-class MarcadorCustomizadoAdmin(ModeloBaseAdmin):
-    pass
-
-@admin.register(Status)
-class StatusAdmin(ModeloBaseAdmin):
-    pass
-
-@admin.register(Etapa)
-class EtapaAdmin(ModeloBaseAdmin):
-    pass
 
 # Manter sua classe admin existente para Projeto se já existir
 
@@ -1087,7 +1394,8 @@ class ResultadoUpload1536Form(forms.ModelForm):
         
         return cleaned_data
 
-class ResultadoUpload1536Admin(EmpresaAdminMixin, admin.ModelAdmin):
+class ResultadoUpload1536Admin(ImportExportModelAdmin, EmpresaAdminMixin, admin.ModelAdmin): # MODIFIED
+    resource_class = ResultadoUpload1536Resource # ADDED
     form = ResultadoUpload1536Form
     inlines = [ResultadoAmostra1536Inline]
     
@@ -1199,7 +1507,9 @@ class ResultadoUpload1536Admin(EmpresaAdminMixin, admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         if not change:  # Apenas para novos registros
-            obj.empresa = request.user.empresa if not request.user.is_superuser else obj.projeto.empresa
+            obj.empresa = obj.projeto.empresa # Ensure empresa is set from project
+            if not request.user.is_superuser and request.user.empresa:
+                 obj.empresa = request.user.empresa
         super().save_model(request, obj, form, change)
 
 class ResultadoAmostra1536Resource(resources.ModelResource):
@@ -1291,14 +1601,12 @@ class ResultadoAmostra1536Resource(resources.ModelResource):
             'id',
             'empresa_codigo',
             'empresa_nome',
-            # 'projeto_codigo',
+            'projeto_codigo',  # Add this field to the whitelist
             'projeto_nome',
             'placa_1536',
             'poco_1536',
             'codigo_amostra',
             'barcode_cliente',
-            # 'upload_data',
-            # 'data_processamento',
             'resultado_fh',
             'resultado_aj',
             'coordenada_x_fh',
@@ -1424,8 +1732,6 @@ class ResultadoAmostra1536Admin(ImportExportModelAdmin):
 #-----------------------------------------------
 # UPLOADS E TRATAMETNO RESULTADOS PLACA 384 PHERASTAR  
 
-
-
 class ResultadoAmostra384Resource(resources.ModelResource):
     """
     Resource for import and export of ResultadoAmostra384
@@ -1497,10 +1803,8 @@ class ResultadoAmostra384Admin(ImportExportModelAdmin):
             'arquivo_upload'  # Only include this field as it's the only valid relational field
         )
 
-# Registrar o modelo e sua classe de administração
-admin.site.register(ResultadoAmostra384, ResultadoAmostra384Admin)
-
-class ResultadoUpload384Admin(admin.ModelAdmin):
+class ResultadoUpload384Admin(ImportExportModelAdmin, admin.ModelAdmin): # MODIFIED
+    resource_class = ResultadoUpload384Resource # ADDED
     list_display = ('id', 'projeto', 'empresa', 'data_upload', 'processado', 'data_processamento', 'botao_processar')
     list_filter = ('processado', 'empresa', 'projeto')
     search_fields = ('empresa__nome', 'projeto__codigo_projeto')
@@ -1514,9 +1818,8 @@ class ResultadoUpload384Admin(admin.ModelAdmin):
         ('Status de Processamento', {
             'fields': ('processado', 'data_upload', 'data_processamento'),
             'classes': ('collapse',)
-        }),
+        })
     )
-    
     def botao_processar(self, obj):
         """
         Exibe um botão para processar o arquivo se ele ainda não foi processado.
@@ -1543,7 +1846,7 @@ class ResultadoUpload384Admin(admin.ModelAdmin):
         View para processar um arquivo de upload.
         """
         try:
-            from .servico import process_upload
+            from app.servico import process_upload # Corrected import path
             
             # Processar o arquivo
             stats = process_upload(upload_id)
@@ -1601,9 +1904,108 @@ class ResultadoUpload384Admin(admin.ModelAdmin):
     
     processar_selecionados.short_description = "Processar arquivos selecionados"
 
+################################################### ESTOQUE #############################################
+
+# ADMIN PARA O APP ESTOQUE
+# (Coloque isso antes da seção '# Ordem correta de registros' ou onde achar mais organizado)
+
+class UnidadeMedidaEstoqueAdmin(ImportExportModelAdmin, admin.ModelAdmin): # MODIFIED
+    resource_class = UnidadeMedidaResource # ADDED
+    list_display = ('nome', 'simbolo')
+    search_fields = ('nome', 'simbolo')
+
+class CategoriaProdutoEstoqueAdmin(ImportExportModelAdmin, admin.ModelAdmin): # MODIFIED
+    resource_class = CategoriaProdutoResource # ADDED
+    list_display = ('nome', 'descricao')
+    search_fields = ('nome',)
+
+class FornecedorEstoqueAdmin(ImportExportModelAdmin, admin.ModelAdmin): # MODIFIED
+    resource_class = FornecedorResource # ADDED
+    list_display = ('nome', 'contato')
+    search_fields = ('nome',)
+
+class LocalEstoqueAdmin(ImportExportModelAdmin, admin.ModelAdmin): # MODIFIED
+    resource_class = LocalEstoqueResource # ADDED
+    list_display = ('nome', 'descricao')
+    search_fields = ('nome',)
+
+class ProdutoEstoqueAdmin(ImportExportModelAdmin, admin.ModelAdmin): # MODIFIED
+    resource_class = ProdutoResource # ADDED
+    list_display = ('nome_padrao', 'categoria', 'unidade_medida_primaria', 'sku', 'fornecedor_principal')
+    list_filter = ('categoria', 'unidade_medida_primaria', 'fornecedor_principal')
+    search_fields = ('nome_padrao', 'sku', 'nome_alternativo_fornecedor', 'descricao')
+    autocomplete_fields = ['categoria', 'unidade_medida_primaria', 'fornecedor_principal']
+
+class MovimentacaoEstoqueInlineEstoque(admin.TabularInline):
+    model = MovimentacaoEstoque
+    extra = 0
+    fields = ('tipo_movimentacao', 'quantidade_movimentada', 'unidade_medida_movimentacao', 'data_movimentacao', 'usuario', 'notas')
+    readonly_fields = ('quantidade_convertida',)
+    autocomplete_fields = ['unidade_medida_movimentacao'] # 'usuario' foi removido anteriormente devido a um erro
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "usuario":
+            kwargs['initial'] = request.user.id
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+class ItemEstoqueAdmin(ImportExportModelAdmin, admin.ModelAdmin): # MODIFIED
+    resource_class = ItemEstoqueResource # ADDED
+    list_display = ('produto', 'local', 'quantidade', 'saldo_minimo', 'esta_abaixo_minimo', 'ultima_atualizacao') # Removido 'media_consumo_display' por simplicidade aqui, adicione se necessário
+    list_filter = ('local', 'produto__categoria', 'produto__unidade_medida_primaria')
+    search_fields = ('produto__nome_padrao', 'local__nome')
+    readonly_fields = ('quantidade', 'ultima_atualizacao')
+    autocomplete_fields = ['produto', 'local']
+    inlines = [MovimentacaoEstoqueInlineEstoque]
+
+class MovimentacaoEstoqueAdmin(ImportExportModelAdmin, admin.ModelAdmin): # MODIFIED
+    resource_class = MovimentacaoEstoqueResource # ADDED
+    list_display = (
+        'data_movimentacao', 'item_estoque', 'tipo_movimentacao',
+        'quantidade_movimentada', 'unidade_medida_movimentacao',
+        'quantidade_convertida', 'usuario'
+    )
+    list_filter = ('tipo_movimentacao', 'data_movimentacao', 'item_estoque__local', 'item_estoque__produto__categoria', 'usuario')
+    search_fields = ('item_estoque__produto__nome_padrao', 'notas', 'usuario__username')
+    readonly_fields = ('quantidade_convertida',)
+    date_hierarchy = 'data_movimentacao'
+    autocomplete_fields = ['item_estoque', 'unidade_medida_movimentacao'] # 'usuario' removido
 
 #-----------------------------------------------
 # Ordem correta de registros
+@admin.register(Empresa)
+class EmpresaAdmin(ModeloBaseAdmin):
+   resource_class = EmpresaResource # ADDED
+   pass
+
+@admin.register(Cultivo)
+class CultivoAdmin(ModeloBaseAdmin):
+  resource_class = CultivoResource # ADDED
+  pass
+
+@admin.register(Tecnologia)
+class TecnologiaAdmin(ModeloBaseAdmin):
+    resource_class = TecnologiaResource # ADDED
+    pass
+
+@admin.register(MarcadorTrait)
+class MarcadorTraitAdmin(ModeloBaseAdmin):
+    resource_class = MarcadorTraitResource # ADDED
+    pass
+
+@admin.register(MarcadorCustomizado)
+class MarcadorCustomizadoAdmin(ModeloBaseAdmin):
+    resource_class = MarcadorCustomizadoResource # ADDED
+    pass
+
+@admin.register(Status)
+class StatusAdmin(ModeloBaseAdmin):
+    resource_class = StatusResource # ADDED
+    pass
+
+@admin.register(Etapa)
+class EtapaAdmin(ModeloBaseAdmin):
+    resource_class = EtapaResource # ADDED
+    pass
 
 admin_site.register(User, CustomUserAdmin)
 admin_site.register(Empresa, EmpresaAdmin)
@@ -1629,3 +2031,11 @@ admin_site.register(ResultadoAmostra1536, ResultadoAmostra1536Admin)
 admin_site.register(ResultadoUpload384, ResultadoUpload384Admin)
 admin_site.register(ResultadoAmostra384, ResultadoAmostra384Admin)
 
+# NOVOS REGISTROS PARA O APP ESTOQUE:
+admin_site.register(UnidadeMedida, UnidadeMedidaEstoqueAdmin)
+admin_site.register(CategoriaProduto, CategoriaProdutoEstoqueAdmin)
+admin_site.register(Fornecedor, FornecedorEstoqueAdmin)
+admin_site.register(LocalEstoque, LocalEstoqueAdmin) # Corrigido para usar o ModelAdmin definido
+admin_site.register(Produto, ProdutoEstoqueAdmin)
+admin_site.register(ItemEstoque, ItemEstoqueAdmin) # Corrigido para usar o ModelAdmin definido
+admin_site.register(MovimentacaoEstoque, MovimentacaoEstoqueAdmin) # Corrigido para usar o ModelAdmin definido
