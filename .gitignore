@@ -21,6 +21,7 @@ scripts/
 backups/
 frontend/
 
+
 # IDE
 .idea/
 .vscode/

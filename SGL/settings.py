@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'import_export',
+    'estoque'
 ]
 
 MIDDLEWARE = [
@@ -296,4 +297,4 @@ CONTROL_WELL_CONFIGS = {
 DEFAULT_CONTROL_WELLS = 'CONFIG_1'
 
 CONTROL_WELL_POSITIONS = ['A01', 'B01', 'C01', 'D01', 'E01', 'F01']
-# CONTROL_WELL_POSITIONS = ['A01', 'B01', 'C01', 'D01']
+#CONTROL_WELL_POSITIONS = ['A01', 'B01', 'C01', 'D01']
