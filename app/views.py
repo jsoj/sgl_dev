@@ -220,6 +220,25 @@ def criar_placa_384_htmx(request):
     return render(request, 'criar_placas_384_htmx.html', context)
 
 @login_required
+def criar_placa_1536_htmx(request):
+    """
+    View para exibir o formulário inicial de criação de placas 384 usando HTMX.
+    Mostra as empresas disponíveis para o usuário logado.
+    """
+    # Obtém as empresas que o usuário tem acesso
+    if request.user.is_superuser:
+        empresas = Empresa.objects.all()
+    else:
+        empresas = request.user.empresas.all()
+    
+    context = {
+        'empresas': empresas
+    }
+
+    return render(request, 'criar_placas_1536_htmx.html', context)
+
+
+@login_required
 def carregar_projetos_por_empresa(request):
     """
     Endpoint HTMX para carregar projetos baseado na empresa selecionada
@@ -276,6 +295,38 @@ def carregar_placas_por_projeto(request):
         'placas_96': placas_96
     })
 
+@login_required
+def carregar_placas_384_por_projeto(request):
+    """
+    View para carregar placas 384 de um projeto selecionado via HTMX.
+    """
+    projeto_id = request.GET.get('projeto')
+    placas_384 = []
+    
+    if projeto_id:
+        try:
+            # Buscar as placas 384 do projeto selecionado
+            placas_384 = Placa384.objects.filter(
+                projeto_id=projeto_id,
+                is_active=True
+            ).order_by('codigo_placa')
+            
+            # Verificar se essas placas já foram usadas em alguma placa 384
+            # Para evitar exibir placas que já foram transferidas
+            from app.models import PlacaMap384
+            placas_usadas = PlacaMap1536.objects.filter(
+                placa_origem__in=placas_384
+            ).values_list('placa_origem_id', flat=True)
+            
+            # Filtrar apenas placas que não foram usadas
+            placas_384 = placas_384.exclude(id__in=placas_usadas)
+            
+        except Exception as e:
+            print(f"Erro ao carregar placas 384 do projeto {projeto_id}: {e}")
+
+    return render(request, 'partials/placas_384_listagem.html', {
+        'placas_384': placas_384
+    })
 
 @staff_member_required
 def processar_arquivo_384(request, object_id):

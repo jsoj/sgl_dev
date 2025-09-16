@@ -48,3 +48,27 @@ def carregar_placas_por_projeto(request):
         return JsonResponse({'error': 'Projeto não encontrado.'}, status=404)
     except Exception as e:
         return JsonResponse({'error': f'Erro ao carregar placas: {str(e)}'}, status=500)
+
+def carregar_placas_384_por_projeto(request):
+    """Carrega as placas ativas de um projeto selecionado."""
+    projeto_id = request.GET.get('projeto')
+    
+    if not projeto_id:
+        return JsonResponse({'error': 'Projeto não especificado.'}, status=400)
+    
+    try:
+        projeto = Projeto.objects.get(id=projeto_id)
+        
+        # Verifica se o usuário tem acesso ao projeto
+        if not request.user.is_superuser and projeto.empresa not in request.user.empresas.all():
+            return JsonResponse({'error': 'Você não tem permissão para acessar este projeto.'}, status=403)
+        
+        # Obtém as placas 96 ou 384 ativas do projeto
+        placas_384 = Placa384.objects.filter(projeto=projeto, is_active=True).order_by('codigo_placa')
+        placas_data = [{'id': placa.id, 'codigo': placa.codigo_placa} for placa in placas_384]
+        return JsonResponse({'placas': placas_data})
+    
+    except Projeto.DoesNotExist:
+        return JsonResponse({'error': 'Projeto não encontrado.'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': f'Erro ao carregar placas: {str(e)}'}, status=500)

@@ -13,6 +13,10 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from pathlib import Path
 from datetime import timedelta
 import os
+from dotenv import load_dotenv
+
+# Carregar variáveis de ambiente
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -22,16 +26,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-!+qk-%hvw_7ez$fa)+9wz#wvi_g1zf3wv$^0ed0*p69c@l3%b3'
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-!+qk-%hvw_7ez$fa)+9wz#wvi_g1zf3wv$^0ed0*p69c@l3%b3')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = [
-    'dev.agromarkers.com.br',
-    'localhost',
-    '127.0.0.1',
-]
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'dev.agromarkers.com.br,localhost,127.0.0.1').split(',')
 
 
 # Application definition
@@ -107,12 +107,12 @@ WSGI_APPLICATION = 'SGL.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'db_dev',
-        'USER': 'django_user',
-        'PASSWORD': 'Jsoj@3105',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.postgresql'),
+        'NAME': os.getenv('DB_NAME', 'db_dev'),
+        'USER': os.getenv('DB_USER', 'django_user'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'Jsoj@3105'),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
 
@@ -296,5 +296,7 @@ CONTROL_WELL_CONFIGS = {
 
 DEFAULT_CONTROL_WELLS = 'CONFIG_1'
 
+NRO_AMOSTRAS = 90  # Número de amostras por placa, alterar conforme a necessidade da BASF
+#CONTROL_WELL_POSITIONS = ['H05', 'H06', 'H07', 'H08', 'H09', 'H10' , 'H11' , 'H12'] # BASF 
 CONTROL_WELL_POSITIONS = ['A01', 'B01', 'C01', 'D01', 'E01', 'F01']
 #CONTROL_WELL_POSITIONS = ['A01', 'B01', 'C01', 'D01']

@@ -25,8 +25,10 @@ def criar_placas_384_htmx(request):
 def carregar_projetos_por_empresa(request):
     """Carrega os projetos associados a uma empresa via HTMX."""
     empresa_id = request.GET.get('empresa')
+    placas_url_name = request.GET.get('placas_url_name') # Retrieve the new parameter
     
     logger.info(f"Carregando projetos para empresa_id: {empresa_id}")
+    logger.info(f"Placas URL name para o proximo passo: {placas_url_name}")
     
     if not empresa_id:
         return HttpResponse("<p>Selecione uma empresa válida</p>")
@@ -47,9 +49,11 @@ def carregar_projetos_por_empresa(request):
         for projeto in projetos:
             logger.info(f"Projeto: {projeto.id} - {projeto.codigo_projeto}")
         
-        html = render_to_string('partials/projetos_por_empresa.html', {
-            'projetos': projetos
-        })
+        context = {
+            'projetos': projetos,
+            'placas_load_url_name': placas_url_name  # Pass it to the template
+        }
+        html = render_to_string('partials/projetos_por_empresa.html', context)
         return HttpResponse(html)
     
     except Empresa.DoesNotExist:
@@ -204,8 +208,8 @@ def criar_placas_384_lote(request):
         placas_384_criadas = []
         placas_96 = list(Placa96.objects.filter(id__in=placas_96_ids).order_by('codigo_placa'))
         
+        # Criar placas 384 com as placas disponívei
         with transaction.atomic():
-            # Criar placas 384 com as placas disponíveis
             for i in range(0, len(placas_96), 4):
                 grupo_placas = placas_96[i:min(i+4, len(placas_96))]
                 

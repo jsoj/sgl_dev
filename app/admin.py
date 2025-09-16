@@ -1,3 +1,5 @@
+
+
 from rest_framework.authtoken.models import TokenProxy
 from rest_framework.authtoken.admin import TokenAdmin as AuthTokenTokenAdmin # Renomeie para evitar conflito
 from django.urls import reverse
@@ -737,45 +739,147 @@ class ResultadoAmostra1536Inline(admin.TabularInline):
         return False
 #-----------------------------------------------
 # AMOSTRA
+# SUBSTITUA APENAS ESTA CLASSE EM SEU CÓDIGO
+# admin.py
 
+# ... (outras importações e classes) ...
+
+# SUBSTITUA APENAS ESTA CLASSE EM SEU CÓDIGO
 class AmostraResource(resources.ModelResource):
+    # Campos ForeignKey existentes (permanecem iguais)
     empresa = fields.Field(
         column_name='empresa_codigo',
-        attribute='projeto__empresa',
-        widget=ForeignKeyWidget(Empresa, 'codigo'))
+        attribute='projeto__empresa__codigo',
+        readonly=True)
     projeto = fields.Field(
         column_name='projeto_codigo',
-        attribute='projeto',
+        attribute='projeto__codigo_projeto',
         widget=ForeignKeyWidget(Projeto, 'codigo_projeto'))
+
+    # Campos virtuais (permanecem iguais)
+    placa_96 = fields.Field(attribute='placa_96', column_name='Placa 96', readonly=True)
+    poco_96 = fields.Field(attribute='poco_96', column_name='Poço 96', readonly=True)
+    placa_384 = fields.Field(attribute='placa_384', column_name='Placa 384', readonly=True)
+    poco_384 = fields.Field(attribute='poco_384', column_name='Poço 384', readonly=True)
+    placa_1536 = fields.Field(attribute='placa_1536', column_name='Placa 1536', readonly=True)
+    poco_1536 = fields.Field(attribute='poco_1536', column_name='Poço 1536', readonly=True)
+
+    # Otimização da query (permanece igual)
+    def get_export_queryset(self, queryset):
+        return queryset.select_related(
+            'projeto', 'projeto__empresa'
+        ).prefetch_related(
+            'poco96_set__placa',
+            'poco384_set__placa',
+            'poco1536_set__placa'
+        )
+
+    # --- MÉTODOS DEHYDRATE COM TRATAMENTO DE ERRO ---
+    def dehydrate_placa_96(self, amostra):
+        try:
+            pocos = amostra.poco96_set.all()
+            return ", ".join([p.placa.codigo_placa for p in pocos]) if pocos.exists() else '-'
+        except Exception as e:
+            return f"ERRO: {str(e)}"
+
+    def dehydrate_poco_96(self, amostra):
+        try:
+            pocos = amostra.poco96_set.all()
+            return ", ".join([p.posicao for p in pocos]) if pocos.exists() else '-'
+        except Exception as e:
+            return f"ERRO: {str(e)}"
+
+    def dehydrate_placa_384(self, amostra):
+        try:
+            pocos = amostra.poco384_set.all()
+            return ", ".join([p.placa.codigo_placa for p in pocos]) if pocos.exists() else '-'
+        except Exception as e:
+            return f"ERRO: {str(e)}"
+
+    def dehydrate_poco_384(self, amostra):
+        try:
+            pocos = amostra.poco384_set.all()
+            return ", ".join([p.posicao for p in pocos]) if pocos.exists() else '-'
+        except Exception as e:
+            return f"ERRO: {str(e)}"
+
+    def dehydrate_placa_1536(self, amostra):
+        try:
+            pocos = amostra.poco1536_set.all()
+            return ", ".join([p.placa.codigo_placa for p in pocos]) if pocos.exists() else '-'
+        except Exception as e:
+            return f"ERRO: {str(e)}"
+
+    def dehydrate_poco_1536(self, amostra):
+        try:
+            pocos = amostra.poco1536_set.all()
+            return ", ".join([p.posicao for p in pocos]) if pocos.exists() else '-'
+        except Exception as e:
+            return f"ERRO: {str(e)}"
 
     class Meta:
         model = Amostra
-        fields = ('id', 'empresa', 'projeto', 'codigo_amostra', 'barcode_cliente', 'data_cadastro')
+        fields = (
+            'id',
+            'empresa',
+            'projeto',
+            'codigo_amostra',
+            'barcode_cliente',
+            'placa_96',
+            'poco_96',
+            'placa_384',
+            'poco_384',
+            'placa_1536',
+            'poco_1536',
+            'data_cadastro'
+        )
+        export_order = fields
         import_id_fields = ['codigo_amostra']
         skip_unchanged = True
         use_bulk = True
         batch_size = 1000
 
+    # Métodos de importação (permanecem iguais)
     def before_import_row(self, row, **kwargs):
-        # Converte para string e limpa os dados
         if 'codigo_amostra' in row:
             row['codigo_amostra'] = str(row['codigo_amostra']).strip()
         if 'barcode_cliente' in row:
             row['barcode_cliente'] = str(row['barcode_cliente']).strip() if row['barcode_cliente'] else None
 
     def skip_row(self, instance, original, row, import_validation_errors=None):
-        # Pula a criação de novos registros, apenas permite atualização
         return not instance.pk
+
 
 class AmostraAdmin(ImportExportModelAdmin):
     resource_class = AmostraResource
-    list_display = ('codigo_amostra', 'barcode_cliente', 'projeto', 'empresa')
+    list_display = (
+        'codigo_amostra',
+        'empresa',  # Método já existente
+        'projeto',
+        'get_placa_96',
+        'get_poco_96',
+        'get_placa_384',
+        'get_poco_384',
+        'get_placa_1536',
+        'get_poco_1536',
+    )
+
     list_filter = (EmpresaFilter, ProjetoFilter)
-    search_fields = ('codigo_amostra', 'barcode_cliente')
+    search_fields = (
+        'codigo_amostra', 
+        'barcode_cliente',
+        'poco96__placa__codigo_placa',
+        'poco384__placa__codigo_placa',
+        'poco1536__placa__codigo_placa'
+        )
     
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        qs = qs.select_related('projeto', 'projeto__empresa')
+        qs = qs.select_related('projeto', 'projeto__empresa').prefetch_related(
+            'poco96_set__placa',
+            'poco384_set__placa',
+            'poco1536_set__placa'
+        )
         
         if not request.user.is_superuser:
             qs = qs.filter(projeto__empresa=request.user.empresa)
@@ -785,6 +889,46 @@ class AmostraAdmin(ImportExportModelAdmin):
     def empresa(self, obj):
         return obj.projeto.empresa.nome
     empresa.admin_order_field = 'projeto__empresa__nome'
+    empresa.short_description = 'Empresa'
+
+    def get_placa_96(self, obj):
+        """Retorna o código da Placa 96 onde a amostra se encontra."""
+        # O prefetch_related em get_queryset torna esta chamada eficiente
+        pocos = obj.poco96_set.all()
+        # Usa join para o caso de uma amostra estar em mais de uma placa (replicação)
+        return ", ".join([poco.placa.codigo_placa for poco in pocos]) if pocos else '-'
+    get_placa_96.short_description = 'Placa 96'
+
+    def get_poco_96(self, obj):
+        """Retorna a posição na Placa 96."""
+        pocos = obj.poco96_set.all()
+        return ", ".join([poco.posicao for poco in pocos]) if pocos else '-'
+    get_poco_96.short_description = 'Poço 96'
+
+    def get_placa_384(self, obj):
+        """Retorna o código da Placa 384 onde a amostra se encontra."""
+        pocos = obj.poco384_set.all()
+        return ", ".join([poco.placa.codigo_placa for poco in pocos]) if pocos else '-'
+    get_placa_384.short_description = 'Placa 384'
+
+    def get_poco_384(self, obj):
+        """Retorna a posição na Placa 384."""
+        pocos = obj.poco384_set.all()
+        return ", ".join([poco.posicao for poco in pocos]) if pocos else '-'
+    get_poco_384.short_description = 'Poço 384'
+
+    def get_placa_1536(self, obj):
+        """Retorna o código da Placa 1536 onde a amostra se encontra."""
+        pocos = obj.poco1536_set.all()
+        return ", ".join([poco.placa.codigo_placa for poco in pocos]) if pocos else '-'
+    get_placa_1536.short_description = 'Placa 1536'
+
+    def get_poco_1536(self, obj):
+        """Retorna a posição na Placa 1536."""
+        pocos = obj.poco1536_set.all()
+        return ", ".join([poco.posicao for poco in pocos]) if pocos else '-'
+    get_poco_1536.short_description = 'Poço 1536'
+
 
 #-----------------------------------------------
 # Placas

@@ -5,7 +5,7 @@ from app.funcoes import validar_data_liberacao, validar_data_recebimento
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth.models import AbstractUser
-from SGL.settings import AUTH_USER_MODEL, CONTROL_WELL_POSITIONS
+from SGL.settings import AUTH_USER_MODEL, CONTROL_WELL_POSITIONS, NRO_AMOSTRAS
 from django.conf import settings
 from django.core.mail import EmailMessage
 import os  
@@ -272,7 +272,7 @@ class Projeto(EmpresaMixin, models.Model):
     def _calcular_numero_placas(self):
         """Calcula automaticamente o número de placas de 96 necessárias"""
         if self.quantidade_amostras:
-            self.numero_placas_96 = -(-self.quantidade_amostras // 90)  # Arredondamento para cima
+            self.numero_placas_96 = -(-self.quantidade_amostras // NRO_AMOSTRAS)  # Arredondamento para cima tem alterar conforma a basf envia. 
 
     @property
     def status_atual(self):
@@ -558,7 +558,7 @@ class Projeto(EmpresaMixin, models.Model):
         try:
             with transaction.atomic():
                 # Calcula número de placas necessárias (96 poços por placa)
-                num_plates = -(-self.quantidade_amostras // 90)  # 90 poços úteis por placa
+                num_plates = -(-self.quantidade_amostras // NRO_AMOSTRAS)  # 90 poços úteis por placa # alterar por conta da BASF
                 print(f"Número de placas necessárias: {num_plates}")
                 
                 # Cria a amostra de controle NTC

@@ -78,7 +78,7 @@ class ProjetoTests(BaseTestCase):
         self.assertTrue(projeto.amostra_set.exists())
         
         # Check number of plates (90 samples per plate + control wells)
-        expected_plates = -(-100 // 90)  # Ceiling division for 90 samples per plate
+        expected_plates = -(-100 // NRO_AMOSTRAS)  # Ceiling division for 90 samples per plate # alterar por conta da BAsf
         self.assertEqual(projeto.placa96_set.count(), expected_plates)
         
         # Check number of samples (including NTC control sample)
