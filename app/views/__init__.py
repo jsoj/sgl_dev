@@ -9,6 +9,13 @@ from .placa384_htmx import (
     criar_placas_384
 )
 
+from .placa1536_htmx import (
+    criar_placas_1536_htmx,
+    carregar_projetos_por_empresa,
+    carregar_placas_384_por_projeto,
+    criar_placas_1536
+)
+
 # Importar views de autenticação
 from .auth_views import logout_view
 

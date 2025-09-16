@@ -120,6 +120,51 @@ def carregar_placas_por_projeto(request):
         return HttpResponse(f"<p class='text-danger'>Erro ao carregar placas: {str(e)}</p><pre>{traceback_str}</pre>")
 
 @login_required
+def carregar_placas_384_por_projeto(request):
+    """Carrega as placas 384 de um projeto selecionado via HTMX."""
+    projeto_id = request.GET.get('projeto')
+    
+    logger.info(f"Tentando carregar placas para projeto_id: {projeto_id}")
+    
+    if not projeto_id:
+        return HttpResponse("<p>Selecione um projeto válido</p>")
+    
+    try:
+        projeto = Projeto.objects.get(id=projeto_id)
+        logger.info(f"Projeto encontrado: {projeto.codigo_projeto}")
+        
+        # Verifica se o usuário tem acesso à empresa do projeto
+        if not request.user.is_superuser and projeto.empresa not in request.user.empresas.all():
+            logger.warning(f"Usuário {request.user} sem permissão para projeto {projeto.codigo_projeto}")
+            return HttpResponse("<p class='text-danger'>Você não tem permissão para acessar este projeto.</p>")
+        
+        # Obtém as placas 384 do projeto - apenas placas ativas
+        placas_384 = Placa384.objects.filter(
+            projeto=projeto,
+            is_active=True
+        ).order_by('codigo_placa')
+
+        logger.info(f"Encontradas {placas_384.count()} placas para o projeto {projeto.codigo_projeto}")
+        logger.info(f"Primeiras 5 placas: {[p.codigo_placa for p in placas_384[:5]]}")
+
+        # Alterando aqui para usar o template de listagem de placas
+        html = render_to_string('partials/placas_384_listagem.html', {
+            'placas_384': placas_384,
+            'projeto': projeto
+        })
+        return HttpResponse(html)
+    
+    except Projeto.DoesNotExist:
+        logger.error(f"Projeto {projeto_id} não encontrado")
+        return HttpResponse("<p class='text-danger'>Projeto não encontrado.</p>")
+    except Exception as e:
+        import traceback
+        traceback_str = traceback.format_exc()
+        logger.error(f"Erro ao carregar placas: {str(e)}", exc_info=True)
+        return HttpResponse(f"<p class='text-danger'>Erro ao carregar placas: {str(e)}</p><pre>{traceback_str}</pre>")
+
+
+@login_required
 def criar_placas_384(request):
     """Cria placas 384 a partir das placas 96 selecionadas via HTMX POST."""
     if request.method != 'POST':
@@ -187,6 +232,76 @@ def criar_placas_384(request):
         logger.error(f"Erro ao criar placa 384: {str(e)}\n{traceback_str}")
         return HttpResponse(f"<p class='text-danger'>Erro ao criar placa 384: {str(e)}</p>")
 
+
+@login_required
+def criar_placas_1536(request):
+    """Cria placas 1536 a partir das placas 384 selecionadas via HTMX POST."""
+    if request.method != 'POST':
+        return HttpResponse("<p class='text-danger'>Método não permitido.</p>")
+    
+    projeto_id = request.POST.get('projeto_id')
+    placas_384_ids = request.POST.getlist('placas_384')
+    
+    if not projeto_id:
+        return HttpResponse("<p class='text-danger'>Projeto não especificado.</p>")
+    
+    try:
+        # Buscar objetos do banco
+        projeto = Projeto.objects.get(id=projeto_id)
+        empresa = projeto.empresa
+        placas_384 = list(Placa384.objects.filter(id__in=placas_384_ids).order_by('codigo_placa'))
+        
+        # Verificar se o usuário tem permissão para esta empresa
+        if not request.user.is_superuser and empresa not in request.user.empresas.all():
+            return HttpResponse("<p class='text-danger'>Você não tem permissão para acessar esta empresa.</p>")
+        
+        placas_1536_criadas = []
+        
+        # Criar placas 1536 em grupos de 4 placas 384
+        with transaction.atomic():
+            for i in range(0, len(placas_384), 4):
+                grupo_placas = placas_384[i:min(i+4, len(placas_384))]
+                
+                # Gerar código baseado na primeira e última placa do grupo
+                primeira_placa = grupo_placas[0].codigo_placa
+                ultima_placa = grupo_placas[-1].codigo_placa
+                
+                # Extrair os últimos 3 dígitos de cada código
+                primeira_numero = primeira_placa.split('-')[-1][-3:]
+                ultima_numero = ultima_placa.split('-')[-1][-3:]
+                codigo_placa_1536 = f"{primeira_numero}-{ultima_numero}"
+                
+                # Criar a placa 1536
+                placa_1536 = Placa1536.objects.create(
+                    empresa=empresa,
+                    projeto=projeto,
+                    codigo_placa=codigo_placa_1536,
+                )
+
+                # Transferir as placas 384 para a placa 1536
+                placa_1536.transfer_384_to_1536(grupo_placas)
+                placas_1536_criadas.append(placa_1536)
+
+                # Inativar as placas 384 utilizadas
+                for placa_384 in grupo_placas:
+                    placa_384.is_active = False
+                    placa_384.save()
+        
+        # Retornar o resultado
+        html = render_to_string('partials/resultado_criar_placas_1536.html', {
+            'sucesso': True,
+            'placas_1536_criadas': placas_1536_criadas,
+            'placas_384_processadas': len(placas_384)
+        })
+        return HttpResponse(html)
+    
+    except Exception as e:
+        import traceback
+        traceback_str = traceback.format_exc()
+        logger.error(f"Erro ao criar placa 1536: {str(e)}\n{traceback_str}")
+        return HttpResponse(f"<p class='text-danger'>Erro ao criar placa 1536: {str(e)}</p>")
+
+
 @login_required
 def criar_placas_384_lote(request):
     """
@@ -252,3 +367,74 @@ def criar_placas_384_lote(request):
             'sucesso': False,
             'mensagem': f'Erro ao criar placas: {str(e)}'
         })
+
+
+@login_required
+def criar_placas_1536_lote(request):
+    """
+    View para criar múltiplas placas 1536 em lote a partir das placas 384 selecionadas.
+    """
+    if request.method != 'POST':
+        return HttpResponse("Método não permitido", status=405)
+    
+    try:
+        projeto_id = request.POST.get('projeto_id')
+        placas_384_ids = request.POST.getlist('placas_384')
+        
+        if not all([projeto_id, placas_384_ids]):
+            return render(request, 'partials/resultado_criacao_placa.html', {
+                'sucesso': False,
+                'mensagem': 'Selecione ao menos uma placa 384.'
+            })
+        
+        projeto = Projeto.objects.get(id=projeto_id)
+        empresa = projeto.empresa
+        
+        # Verificar permissões
+        if not request.user.is_superuser and empresa not in request.user.empresas.all():
+            return render(request, 'partials/resultado_criacao_placa.html', {
+                'sucesso': False,
+                'mensagem': 'Sem permissão para esta operação.'
+            })
+        
+        placas_384_criadas = []
+        placas_384 = list(Placa384.objects.filter(id__in=placas_384_ids).order_by('codigo_placa'))
+
+        with transaction.atomic():
+            # Criar placas 1536 com as placas disponíveis
+            for i in range(0, len(placas_384), 4):
+                grupo_placas = placas_384[i:min(i+4, len(placas_384))]
+
+                # Gerar código usando primeira e última placa do grupo
+                primeira_placa = grupo_placas[0].codigo_placa.split('-')[-1]
+                ultima_placa = grupo_placas[-1].codigo_placa.split('-')[-1]
+                codigo_placa = f"{primeira_placa}-{ultima_placa}"
+                
+                # Criar placa 384
+                placa_384 = Placa384.objects.create(
+                    empresa=empresa,
+                    projeto=projeto,
+                    codigo_placa=codigo_placa
+                )
+                
+                # Transferir as placas 384 para a nova placa 1536
+                placa_1536.transfer_384_to_1536(grupo_placas)
+                placas_1536_criadas.append(placa_1536)
+
+        return render(request, 'partials/resultado_criacao_placa.html', {
+            'sucesso': True,
+            'placas_1536_criadas': placas_1536_criadas,
+            'placas_384_processadas': len(placas_384)
+        })
+        
+    except Exception as e:
+        import traceback
+        logger.error(f"Erro ao criar placas 1536 em lote: {str(e)}\n{traceback.format_exc()}")
+        return render(request, 'partials/resultado_criacao_placa.html', {
+            'sucesso': False,
+            'mensagem': f'Erro ao criar placas: {str(e)}'
+        })
+
+
+
+

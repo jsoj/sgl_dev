@@ -21,7 +21,7 @@
                         class="form-select"
                         id="empresa"
                         name="empresa"
-                        hx-get="{% url 'carregar_projetos_por_empresa' %}"
+                        hx-get="{% url 'carregar_projetos_por_empresa' %}?placas_url_name=carregar_placas_por_projeto"
                         hx-target="#projetos-container"
                         hx-indicator="#loading-indicator"
                         hx-trigger="change"
@@ -38,7 +38,7 @@
                 <div class="col-md-6">
                     <div id="projetos-container">
                         <!-- Os projetos serão carregados aqui via HTMX -->
-                        {% include 'partials/projetos_por_empresa.html' with projetos=None %}
+                        {% include 'partials/projetos_por_empresa.html' with projetos=None placas_load_url_name='carregar_placas_por_projeto' %}
                     </div>
                 </div>
             </div>

@@ -6,6 +6,9 @@
 <div class="container">
     <h1 class="mb-4">Criar Placas 1536</h1>
 
+    <!-- Adicionar o token CSRF aqui -->
+    {% csrf_token %}
+
     <div class="card">
         <div class="card-header bg-primary text-white">
             <h5 class="mb-0">Selecione a empresa e o projeto</h5>
@@ -18,7 +21,7 @@
                         class="form-select"
                         id="empresa"
                         name="empresa"
-                        hx-get="{% url 'carregar_projetos_por_empresa' %}"
+                        hx-get="{% url 'carregar_projetos_por_empresa' %}?placas_url_name=carregar_placas_384_por_projeto"
                         hx-target="#projetos-container"
                         hx-indicator="#loading-indicator"
                         hx-trigger="change"
@@ -35,7 +38,7 @@
                 <div class="col-md-6">
                     <div id="projetos-container">
                         <!-- Os projetos serão carregados aqui via HTMX -->
-                        {% include 'partials/projetos_por_empresa.html' with projetos=None %}
+                        {% include 'partials/projetos_por_empresa.html' with projetos=None placas_load_url_name='carregar_placas_384_por_projeto' %}
                     </div>
                 </div>
             </div>
@@ -48,6 +51,24 @@
 
     <div id="resultado-container">
         <!-- Os resultados da criação de placas 1536 serão exibidos aqui -->
+    </div>
+
+    <!-- Modal for Success Results -->
+    <div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="successModalLabel">Resultados da Criação de Placas 1536</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="modal-results-container">
+                    <!-- Os resultados serão carregados aqui -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" id="close-modal-btn" data-bs-dismiss="modal">Fechar</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Indicador de carregamento -->
@@ -80,49 +101,55 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Função para atualizar o contador e o estado do botão
+    function atualizarContador() {
+        const container = document.getElementById('placas-384-container');
+        if (!container) return;
+        
+        const checkboxes = container.querySelectorAll('.placa-checkbox:checked');
+        const contador = document.getElementById('placas-selecionadas-contador');
+        const btnCriar = document.getElementById('btn-criar-placas');
+        const total = checkboxes.length;
+        
+        if (contador) {
+            contador.textContent = `${total} placa${total !== 1 ? 's' : ''} selecionada${total !== 1 ? 's' : ''}`;
+        }
+        
+        if (btnCriar) {
+            // Habilita o botão quando pelo menos uma placa está selecionada
+            btnCriar.disabled = total === 0;
+        }
+    }
+
+    // Delegação de eventos para os checkboxes individuais
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('placa-checkbox') || e.target.id === 'selecionar-todas-placas') {
+            atualizarContador();
+        }
+    });
+
+    // Handler para "Selecionar Todas"
+    document.addEventListener('change', function(e) {
+        if (e.target.id === 'selecionar-todas-placas') {
+            const container = document.getElementById('placas-384-container');
+            const checkboxes = container.querySelectorAll('.placa-checkbox');
+            checkboxes.forEach(cb => cb.checked = e.target.checked);
+            atualizarContador();
+        }
+    });
+
     // Configurar CSRF token para todas as requisições HTMX
     document.body.addEventListener('htmx:configRequest', function(evt) {
         const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
         evt.detail.headers['X-CSRFToken'] = csrfToken;
     });
 
-    // Atualizar placas ao selecionar um projeto
-    document.body.addEventListener('htmx:afterSwap', function(evt) {
-        if (evt.detail.target.id === 'projetos-container') {
-            const projetoSelect = document.querySelector('#projeto');
-            if (projetoSelect) {
-                projetoSelect.addEventListener('change', function() {
-                    const projetoId = this.value;
-                    if (projetoId) {
-                        fetch(`/api/carregar-placas-por-projeto/?projeto=${projetoId}`)
-                            .then(response => response.json())
-                            .then(data => {
-                                const placasContainer = document.querySelector('#placas-container');
-                                if (data.placas && data.placas.length > 0) {
-                                    placasContainer.innerHTML = `
-                                        <div class="card mt-4">
-                                            <div class="card-header bg-primary text-white">
-                                                <h5 class="mb-0">Placas 384 Disponíveis</h5>
-                                            </div>
-                                            <div class="card-body">
-                                                <ul class="list-group">
-                                                    ${data.placas.map(placa => `
-                                                        <li class="list-group-item">
-                                                            <input type="checkbox" class="form-check-input me-2" value="${placa.id}">
-                                                            ${placa.codigo}
-                                                        </li>
-                                                    `).join('')}
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    `;
-                                } else {
-                                    placasContainer.innerHTML = '<p class="mt-4 text-muted">Nenhuma placa 384 disponível para este projeto.</p>';
-                                }
-                            })
-                            .catch(error => console.error('Erro ao carregar placas:', error));
-                    }
-                });
+    // Mostrar spinner quando o botão de criar placas for clicado
+    document.addEventListener('click', function(e) {
+        if (e.target.id === 'btn-criar-placas') {
+            const loadingIndicator = document.getElementById('loading-indicator');
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'flex'; // Use 'flex' to ensure visibility
             }
         }
     });
@@ -134,6 +161,36 @@ document.addEventListener('DOMContentLoaded', function() {
             loadingIndicator.style.display = 'none';
         }
     });
+
+    // Esconder o spinner quando a requisição HTMX terminar
+    document.body.addEventListener('htmx:afterOnLoad', function() {
+        const loadingIndicator = document.getElementById('loading-indicator');
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'none';
+        }
+    });
+
+    // Mostrar modal com os resultados no sucesso
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+        if (evt.detail.target.id === 'resultado-container') {
+            const modalResults = document.getElementById('modal-results-container');
+            const resultadoContainer = document.getElementById('resultado-container');
+            if (modalResults && resultadoContainer) {
+                modalResults.innerHTML = resultadoContainer.innerHTML; // Copiar conteúdo para o modal
+                resultadoContainer.innerHTML = ''; // Limpar o conteúdo da página principal
+                const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+                successModal.show();
+            }
+        }
+    });
+
+    // Redirecionar para a página principal ao fechar o modal
+    document.getElementById('successModal').addEventListener('hidden.bs.modal', function() {
+        window.location.href = '/'; // Substitua '/' pela URL da página principal
+    });
+
+    // Inicializar contador
+    atualizarContador();
 });
 </script>
 {% endblock %}

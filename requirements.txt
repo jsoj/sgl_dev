@@ -1,6 +1,7 @@
 asgiref==3.8.1
 barcode==1.0.4
 chardet==5.2.0
+python-dotenv==1.0.0
 diff-match-patch==20241021
 Django==5.1.5
 django-cors-headers==4.7.0

@@ -5,10 +5,11 @@
             class="form-select" 
             id="projeto" 
             name="projeto"
-            hx-get="{% url 'carregar_placas_por_projeto' %}"
+            hx-get="{% url placas_load_url_name %}"
             hx-target="#placas-container"
             hx-indicator="#loading-indicator"
             hx-trigger="change"
+            {% if not projetos %}disabled{% endif %}
         >
             <option value="">Selecione um projeto</option>
             {% for projeto in projetos %}
